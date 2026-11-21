@@ -26,9 +26,9 @@ Arabic, and needs nothing installed.
 
 | Home | Lecture picked |
 |:-:|:-:|
-| <img src="https://github.com/user-attachments/assets/65d5a17e-2306-4873-b576-4d58e25e1a68" alt="The home screen: choose a file or a folder" width="340"/> | <img src="https://github.com/user-attachments/assets/3b701709-6bea-4bc0-9bba-6db64b9fd9e0" alt="A lecture picked, with the three sizes and where to save" width="340"/> |
+| <img src="https://github.com/user-attachments/assets/a3e6e05f-f2b5-4924-895d-d1d672648414" alt="The home screen: choose a file or a folder" width="340"/> | <img src="https://github.com/user-attachments/assets/474277b4-19cc-491f-81e7-b8b491c1c1cf" alt="A file picked, with the three sizes and where to save" width="340"/> |
 | **Converting** | **Done** |
-| <img src="https://github.com/user-attachments/assets/a0e297ef-91d9-440c-a71b-e7d4186d2fcc" alt="Converting, with progress and time left" width="340"/> | <img src="https://github.com/user-attachments/assets/0e4bce89-077d-477b-a63e-83ab1130ec03" alt="Done: the size before and after" width="340"/> |
+| <img src="https://github.com/user-attachments/assets/1459a24d-d628-4c17-af1a-165102d38c83" alt="Converting, with progress and time left" width="340"/> | <img src="https://github.com/user-attachments/assets/fd86fffe-a1c1-4798-92ae-fde2c6d9e5f9" alt="Done: the size before and after" width="340"/> |
 
 ## Download
 
