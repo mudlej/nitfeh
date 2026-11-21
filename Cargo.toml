@@ -1,0 +1,37 @@
+[package]
+name = "istma"
+version = "0.1.0"
+edition = "2024"
+description = "Compress lecture audio: any video or audio file to small mono Opus."
+publish = false
+
+[features]
+default = ["gui"]
+# The window. Without it the program is the command line only.
+gui = ["dep:slint", "dep:slint-build", "dep:rfd"]
+
+[dependencies]
+clap = { version = "4.6", features = ["derive"] }
+ctrlc = { version = "3.5", features = ["termination"] }
+indicatif = "0.18"
+walkdir = "2"
+rfd = { version = "0.18", optional = true }
+slint = { version = "1.19", optional = true, default-features = false, features = [
+    "std",
+    "compat-1-2",
+    "backend-winit",
+    "renderer-software",
+] }
+
+[build-dependencies]
+cc = "1"
+slint-build = { version = "1.19", optional = true }
+winresource = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = "fat"
+strip = true
+codegen-units = 1

@@ -1,0 +1,480 @@
+// The Material 3 Expressive pieces the Material library does not ship: shape-morphing buttons, a connected
+// button group, the wavy progress indicator and the scalloped badge.
+
+import { MaterialPalette, StateLayerArea, Icon, Switch } from "@material";
+
+// Curves that need trigonometry come from Rust as SVG path strings.
+export global Shapes {
+    pure callback wave(width: float, height: float, progress: float, phase: float, amplitude: float) -> string;
+    pure callback scallop(size: float, turn: float) -> string;
+}
+
+export global Motion {
+    // Slight overshoot, for shapes and positions.
+    out property <easing> spring: cubic-bezier(0.3, 1.45, 0.6, 1);
+    // No overshoot, for colour and opacity.
+    out property <easing> smooth: cubic-bezier(0.2, 0, 0, 1);
+    out property <duration> fast: 200ms;
+    out property <duration> normal: 400ms;
+}
+
+export enum ButtonKind { filled, tonal, outlined, text }
+
+// A pill that squares up while pressed.
+export component ExpressiveButton {
+    in property <string> text;
+    in property <image> icon;
+    in property <ButtonKind> kind: ButtonKind.filled;
+    in property <bool> large;
+    in property <bool> enabled: true;
+    callback clicked <=> area.clicked;
+
+    property <length> size: root.large ? 64px : 48px;
+    property <length> radius: area.pressed || area.enter-pressed ? (root.large ? 20px : 14px) : root.size / 2;
+    property <color> container: !root.enabled ? MaterialPalette.on-surface.with-alpha(0.1)
+        : root.kind == ButtonKind.filled ? MaterialPalette.primary
+        : root.kind == ButtonKind.tonal ? MaterialPalette.secondary-container
+        : transparent;
+    property <color> content: !root.enabled ? MaterialPalette.on-surface.with-alpha(0.38)
+        : root.kind == ButtonKind.filled ? MaterialPalette.on-primary
+        : root.kind == ButtonKind.tonal ? MaterialPalette.on-secondary-container
+        : root.kind == ButtonKind.outlined ? MaterialPalette.on-surface-variant
+        : MaterialPalette.primary;
+
+    min-width: layout.min-width;
+    min-height: root.size;
+    max-height: root.size;
+    forward-focus: area;
+    accessible-role: button;
+    accessible-enabled: root.enabled;
+    accessible-label: root.text;
+    accessible-action-default => { area.clicked(); }
+
+    animate radius { duration: Motion.fast; easing: Motion.spring; }
+
+    Rectangle {
+        border-radius: root.radius;
+        background: root.container;
+        border-width: root.kind == ButtonKind.outlined && root.enabled ? 1px : 0;
+        border-color: MaterialPalette.outline-variant;
+        animate background { duration: Motion.fast; easing: Motion.smooth; }
+    }
+
+    area := StateLayerArea {
+        color: root.content;
+        border-radius: root.radius;
+        enabled: root.enabled;
+
+        layout := HorizontalLayout {
+            alignment: center;
+            spacing: 8px;
+            padding-left: root.large ? 32px : 22px;
+            padding-right: root.large ? 32px : 22px;
+
+            if root.icon.width > 0: VerticalLayout {
+                alignment: center;
+                Icon {
+                    source: root.icon;
+                    colorize: root.content;
+                    width: root.large ? 24px : 20px;
+                }
+            }
+            Text {
+                text: root.text;
+                color: root.content;
+                font-size: root.large ? 18px : 15px;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+// A short label under a control, shown after the pointer has rested on it.
+component Tip inherits Rectangle {
+    in property <string> text;
+    in property <bool> shown;
+
+    property <float> presence;
+
+    width: label.preferred-width + 20px;
+    height: 30px;
+    border-radius: 8px;
+    background: MaterialPalette.inverse-surface;
+    opacity: root.presence;
+    visible: root.presence > 0.01;
+
+    states [
+        shown when root.shown: {
+            presence: 1;
+            in {
+                animate presence { delay: 450ms; duration: 150ms; easing: Motion.smooth; }
+            }
+            out {
+                animate presence { duration: 80ms; }
+            }
+        }
+    ]
+
+    label := Text {
+        text: root.text;
+        color: MaterialPalette.inverse-on-surface;
+        font-size: 13px;
+        vertical-alignment: center;
+    }
+}
+
+// A round icon button that squares up while pressed, with its name shown underneath on hover.
+export component RoundButton {
+    in property <image> icon;
+    in property <string> tooltip;
+    // Near the window's right edge: the label lines up with the button's right side instead of its middle.
+    in property <bool> tip-at-end;
+    in property <color> container: MaterialPalette.surface.with-alpha(0.55);
+    in property <color> content: MaterialPalette.on-primary-container;
+    in property <bool> enabled: true;
+    callback clicked <=> area.clicked;
+
+    property <length> radius: area.pressed || area.enter-pressed ? 12px : 22px;
+
+    width: 44px;
+    height: 44px;
+    // Above its neighbours while hovered, so the label is not drawn under the next button.
+    z: area.has-hover ? 10 : 0;
+    forward-focus: area;
+    accessible-role: button;
+    accessible-label: root.tooltip;
+    accessible-action-default => { area.clicked(); }
+
+    animate radius { duration: Motion.fast; easing: Motion.spring; }
+
+    Rectangle {
+        border-radius: root.radius;
+        background: root.container;
+    }
+
+    area := StateLayerArea {
+        color: root.content;
+        border-radius: root.radius;
+        enabled: root.enabled;
+        Icon {
+            source: root.icon;
+            colorize: root.content;
+            width: 22px;
+        }
+    }
+
+    Tip {
+        x: root.tip-at-end ? root.width - self.width : (root.width - self.width) / 2;
+        y: root.height + 6px;
+        text: root.tooltip;
+        shown: root.tooltip != "" && area.has-hover && !area.pressed;
+    }
+}
+
+export struct Choice {
+    title: string,
+    detail: string,
+}
+
+// One choice out of a few: the chosen one is a full pill, its neighbours keep small inner corners.
+export component ConnectedGroup {
+    in property <[Choice]> choices;
+    in-out property <int> selected;
+    in property <bool> enabled: true;
+    callback changed(index: int);
+
+    min-height: 68px;
+    max-height: 68px;
+    accessible-role: list;
+
+    HorizontalLayout {
+        spacing: 4px;
+        for choice[index] in root.choices: item := Rectangle {
+            property <bool> chosen: index == root.selected;
+            property <length> inner: area.pressed ? 4px : 10px;
+            property <length> left: self.chosen || index == 0 ? self.height / 2 : self.inner;
+            property <length> right: self.chosen || index == root.choices.length - 1 ? self.height / 2 : self.inner;
+            property <color> content: !root.enabled ? MaterialPalette.on-surface.with-alpha(0.38)
+                : self.chosen ? MaterialPalette.on-primary : MaterialPalette.on-surface-variant;
+
+            horizontal-stretch: 1;
+            clip: true;
+            border-top-left-radius: self.left;
+            border-bottom-left-radius: self.left;
+            border-top-right-radius: self.right;
+            border-bottom-right-radius: self.right;
+            background: !root.enabled ? MaterialPalette.on-surface.with-alpha(self.chosen ? 0.12 : 0.06)
+                : self.chosen ? MaterialPalette.primary : MaterialPalette.surface-container-high;
+            accessible-role: list-item;
+            accessible-label: choice.title;
+            accessible-item-selected: self.chosen;
+
+            animate left, right { duration: Motion.normal; easing: Motion.spring; }
+            animate background { duration: Motion.fast; easing: Motion.smooth; }
+
+            area := StateLayerArea {
+                color: item.content;
+                enabled: root.enabled;
+                clicked => {
+                    if index != root.selected {
+                        root.selected = index;
+                        root.changed(index);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 1px;
+                    Text {
+                        text: choice.title;
+                        color: item.content;
+                        font-size: 15px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: choice.detail;
+                        color: item.content;
+                        opacity: 0.8;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// The active part is a moving wave that flattens out as it completes; the rest is a straight track.
+export component WavyProgress {
+    in property <float> progress;
+    in property <bool> moving: true;
+    // Seconds, advanced by the application at a steady rate: an unpaced animation would redraw without pause.
+    in property <float> clock;
+
+    property <float> shown: clamp(root.progress, 0, 1);
+    property <float> amplitude: root.moving && root.shown < 1 ? 3 : 0;
+    property <float> phase: root.moving ? mod(root.clock / 1.1, 1) : 0;
+    property <length> thickness: 5px;
+    property <length> head: root.thickness / 2 + (root.width - root.thickness) * root.shown;
+
+    min-height: 16px;
+    max-height: 16px;
+    accessible-role: progress-indicator;
+    accessible-value: root.progress;
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 1;
+
+    animate shown { duration: 300ms; easing: Motion.smooth; }
+    animate amplitude { duration: Motion.normal; easing: Motion.smooth; }
+
+    // The part still to do, after a small gap.
+    Rectangle {
+        x: min(root.width, root.head + root.thickness * 1.6);
+        y: (root.height - self.height) / 2;
+        width: max(0px, root.width - self.x);
+        height: root.thickness;
+        border-radius: self.height / 2;
+        background: MaterialPalette.secondary-container;
+    }
+
+    // Where it ends.
+    Rectangle {
+        x: root.width - self.width;
+        y: (root.height - self.height) / 2;
+        width: root.thickness;
+        height: root.thickness;
+        border-radius: self.height / 2;
+        background: MaterialPalette.primary;
+    }
+
+    Path {
+        width: root.width;
+        height: root.height;
+        // Slint fits the view box into the element minus the stroke, so the wave is drawn in that inner space.
+        viewbox-width: (root.width - root.thickness) / 1px;
+        viewbox-height: (root.height - root.thickness) / 1px;
+        commands: Shapes.wave((root.width - root.thickness) / 1px, (root.height - root.thickness) / 1px, root.shown, root.phase, root.amplitude);
+        stroke: MaterialPalette.primary;
+        stroke-width: root.thickness;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        fill: transparent;
+    }
+}
+
+// An icon on a scalloped shape, which turns slowly while `turning`.
+export component Badge {
+    in property <image> icon;
+    in property <color> container: MaterialPalette.primary;
+    in property <color> content: MaterialPalette.on-primary;
+    in property <bool> turning;
+    in property <float> clock;
+    in property <length> size: 72px;
+
+    property <float> turn: root.turning ? mod(root.clock / 9, 1) : 0;
+
+    width: root.size;
+    height: root.size;
+
+    Path {
+        width: root.size;
+        height: root.size;
+        viewbox-width: root.size / 1px;
+        viewbox-height: root.size / 1px;
+        commands: Shapes.scallop(root.size / 1px, root.turn);
+        fill: root.container;
+        stroke-width: 0;
+        animate fill { duration: Motion.normal; easing: Motion.smooth; }
+    }
+
+    Icon {
+        source: root.icon;
+        colorize: root.content;
+        width: root.size * 0.45;
+        animate colorize { duration: Motion.normal; easing: Motion.smooth; }
+    }
+}
+
+// A setting with a switch; the whole row toggles it.
+export component SwitchRow {
+    in property <string> title;
+    in property <string> detail;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+    callback toggled(checked: bool);
+
+    min-height: 56px;
+
+    area := StateLayerArea {
+        color: MaterialPalette.on-surface;
+        border-radius: 16px;
+        enabled: root.enabled;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+
+        HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 12px;
+            spacing: 16px;
+
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+                spacing: 1px;
+                Text {
+                    text: root.title;
+                    color: MaterialPalette.on-surface;
+                    opacity: root.enabled ? 1 : 0.38;
+                    font-size: 15px;
+                    font-weight: 500;
+                    overflow: elide;
+                }
+                if root.detail != "": Text {
+                    text: root.detail;
+                    color: MaterialPalette.on-surface-variant;
+                    opacity: root.enabled ? 1 : 0.38;
+                    font-size: 13px;
+                    overflow: elide;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+                Switch {
+                    width: 52px;
+                    height: 32px;
+                    checked: root.checked;
+                    enabled: root.enabled;
+                    checked-state-changed(checked) => {
+                        if checked != root.checked {
+                            root.checked = checked;
+                            root.toggled(checked);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// A rounded, editable path with a button to browse.
+export component PathField {
+    in property <string> label;
+    in property <string> browse-label;
+    in property <bool> enabled: true;
+    in-out property <string> text <=> input.text;
+    callback edited(text: string);
+    callback browse();
+
+    property <length> scroll;
+
+    min-height: 64px;
+    max-height: 64px;
+    forward-focus: input;
+
+    Rectangle {
+        border-radius: 20px;
+        background: MaterialPalette.surface-container-highest;
+        border-width: input.has-focus ? 2px : 0;
+        border-color: MaterialPalette.primary;
+    }
+
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 8px;
+        spacing: 8px;
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 0px;
+            Text {
+                text: root.label;
+                color: input.has-focus ? MaterialPalette.primary : MaterialPalette.on-surface-variant;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            Rectangle {
+                clip: true;
+                height: input.preferred-height;
+                input := TextInput {
+                    x: min(0px, max(parent.width - self.width - self.text-cursor-width, root.scroll));
+                    width: max(parent.width - self.text-cursor-width, self.preferred-width);
+                    height: 100%;
+                    single-line: true;
+                    enabled: root.enabled;
+                    color: MaterialPalette.on-surface;
+                    opacity: root.enabled ? 1 : 0.5;
+                    font-size: 15px;
+                    selection-background-color: MaterialPalette.primary.with-alpha(0.35);
+                    selection-foreground-color: self.color;
+                    cursor-position-changed(position) => {
+                        if position.x + root.scroll < 0 {
+                            root.scroll = -position.x;
+                        } else if position.x + root.scroll > parent.width - self.text-cursor-width {
+                            root.scroll = parent.width - position.x - self.text-cursor-width;
+                        }
+                    }
+                    edited => { root.edited(self.text); }
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+            ExpressiveButton {
+                text: root.browse-label;
+                kind: ButtonKind.tonal;
+                enabled: root.enabled;
+                clicked => { root.browse(); }
+            }
+        }
+    }
+}

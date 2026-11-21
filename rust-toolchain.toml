@@ -1,0 +1,5 @@
+# The Rust every recipe uses; rustup installs it on first use. The Windows target is for `just dist-windows`.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+targets = ["x86_64-pc-windows-gnu"]

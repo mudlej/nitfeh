@@ -1,0 +1,621 @@
+// The window. Every piece of text shown to the user is an @tr() here, ready for translation.
+
+import "../assets/fonts/IBMPlexSansArabic-Regular.ttf";
+import "../assets/fonts/IBMPlexSansArabic-Medium.ttf";
+import "../assets/fonts/IBMPlexSansArabic-SemiBold.ttf";
+
+import { AboutSlint, Palette } from "std-widgets.slint";
+import { MaterialPalette, StateLayerArea, Icon, ScrollView } from "@material";
+import { Shapes, Motion, ButtonKind, ExpressiveButton, RoundButton, Choice, ConnectedGroup, WavyProgress, Badge, SwitchRow, PathField } from "widgets.slint";
+import { Scheme } from "theme.slint";
+
+export { Shapes }
+
+export enum Stage { setup, working, done }
+
+export struct Problem {
+    name: string,
+    reason: string,
+    failed: bool,
+}
+
+component Label inherits Text {
+    color: MaterialPalette.on-surface-variant;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+// Fades and slides in when it becomes the current view.
+component View inherits Rectangle {
+    in property <bool> current;
+    property <float> presence: root.current ? 1 : 0;
+    opacity: root.presence;
+    visible: root.presence > 0.01;
+    y: (1 - root.presence) * 24px;
+    animate presence { duration: Motion.normal; easing: Motion.smooth; }
+}
+
+export component App inherits Window {
+    // What was chosen.
+    in property <bool> has-source;
+    in property <bool> source-is-folder;
+    in property <string> source-name;
+    in property <string> source-place;
+    in property <bool> scanning;
+    in property <int> to-convert;
+    in property <int> already-done;
+    in property <string> source-size;
+    in property <string> source-duration;
+    in property <bool> sizes-are-totals;
+    in property <string> scan-problem;
+    in property <[string]> preset-sizes;
+
+    // How to convert it.
+    in-out property <int> preset;
+    in-out property <bool> recursive;
+    in-out property <bool> include-audio;
+    in-out property <string> output;
+
+    // While converting.
+    in property <Stage> stage;
+    in property <float> progress;
+    in property <string> current-name;
+    in property <int> current-index;
+    in property <int> total-files;
+    in property <string> speed;
+    in property <string> time-left;
+    in property <bool> reading;
+    in property <bool> cancelling;
+    in property <float> clock;
+
+    // The result.
+    in property <bool> was-cancelled;
+    in property <int> converted;
+    in property <int> failed;
+    in property <string> size-before;
+    in property <string> size-after;
+    in property <string> share;
+    in property <string> elapsed;
+    in property <[Problem]> problems;
+
+    in property <string> version;
+
+    callback choose-file();
+    callback choose-folder();
+    callback choose-output();
+    callback options-changed();
+    callback begin();
+    callback cancel();
+    callback open-output();
+    callback again();
+
+    property <bool> about-open;
+    property <bool> can-start: root.has-source && !root.scanning && root.to-convert > 0 && root.output != "";
+
+    title: "istma";
+    icon: @image-url("../assets/icon.png");
+    preferred-width: 600px;
+    preferred-height: 760px;
+    min-width: 480px;
+    min-height: 660px;
+    background: MaterialPalette.surface;
+    default-font-family: "IBM Plex Sans Arabic";
+    default-font-size: 15px;
+
+    init => {
+        MaterialPalette.schemes = Scheme.schemes;
+    }
+
+    // Overrides the system's light or dark setting.
+    public function use-scheme(dark: bool) {
+        Palette.color-scheme = dark ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    VerticalLayout {
+        padding: 24px;
+        padding-top: 20px;
+        spacing: 20px;
+
+        HorizontalLayout {
+            // Above the views below it: the About label hangs a little past this row.
+            z: 1;
+            spacing: 12px;
+            VerticalLayout {
+                spacing: 0px;
+                Text {
+                    text: "istma";
+                    color: MaterialPalette.on-surface;
+                    font-size: 30px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: @tr("Small audio from long lectures");
+                    color: MaterialPalette.on-surface-variant;
+                    font-size: 14px;
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+                RoundButton {
+                    icon: @image-url("icons/info.svg");
+                    tooltip: @tr("About");
+                    tip-at-end: true;
+                    container: transparent;
+                    content: MaterialPalette.on-surface-variant;
+                    clicked => { root.about-open = true; }
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+
+            // Choose what to convert and how.
+            View {
+                current: root.stage == Stage.setup;
+
+                if !root.has-source: Rectangle {
+                    border-radius: 32px;
+                    background: MaterialPalette.primary-container;
+                    VerticalLayout {
+                        padding: 28px;
+                        spacing: 6px;
+                        alignment: center;
+                        HorizontalLayout {
+                            alignment: center;
+                            Badge {
+                                icon: @image-url("icons/wave.svg");
+                                size: 112px;
+                            }
+                        }
+                        Rectangle { height: 16px; }
+                        Text {
+                            text: @tr("Choose a lecture");
+                            color: MaterialPalette.on-primary-container;
+                            font-size: 28px;
+                            font-weight: 600;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: @tr("A video or audio file, or a whole folder of them");
+                            color: MaterialPalette.on-primary-container;
+                            opacity: 0.8;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
+                        Rectangle { height: 20px; }
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            ExpressiveButton {
+                                text: @tr("Choose file");
+                                icon: @image-url("icons/file.svg");
+                                large: true;
+                                clicked => { root.choose-file(); }
+                            }
+                            ExpressiveButton {
+                                text: @tr("Choose folder");
+                                icon: @image-url("icons/folder.svg");
+                                kind: ButtonKind.tonal;
+                                large: true;
+                                clicked => { root.choose-folder(); }
+                            }
+                        }
+                    }
+                }
+
+                if root.has-source: VerticalLayout {
+                    spacing: 16px;
+
+                    Rectangle {
+                        border-radius: 32px;
+                        background: MaterialPalette.primary-container;
+                        HorizontalLayout {
+                            padding: 20px;
+                            padding-right: 16px;
+                            spacing: 16px;
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 0;
+                                Badge {
+                                    icon: root.source-is-folder ? @image-url("icons/folder.svg") : @image-url("icons/file.svg");
+                                    size: 64px;
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                spacing: 1px;
+                                Text {
+                                    text: root.source-name;
+                                    color: MaterialPalette.on-primary-container;
+                                    font-size: 18px;
+                                    font-weight: 600;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.source-place;
+                                    color: MaterialPalette.on-primary-container;
+                                    opacity: 0.7;
+                                    font-size: 13px;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.scan-problem != "" ? root.scan-problem
+                                        : root.scanning ? @tr("Looking…")
+                                        : root.to-convert == 0 && root.already-done > 0 ? @tr("Everything here is already converted")
+                                        : root.to-convert == 0 && root.source-is-folder ? @tr("No videos here. Subfolders or audio files?")
+                                        : root.to-convert == 0 ? @tr("Nothing to convert here")
+                                        : root.source-duration != "" ? @tr("{n} file · {} · {}" | "{n} files · {} · {}" % root.to-convert, root.source-size, root.source-duration)
+                                        : @tr("{n} file · {}" | "{n} files · {}" % root.to-convert, root.source-size);
+                                    color: root.scan-problem != "" ? MaterialPalette.error : MaterialPalette.on-primary-container;
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    overflow: elide;
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 0;
+                                HorizontalLayout {
+                                    spacing: 4px;
+                                    RoundButton {
+                                        icon: @image-url("icons/file.svg");
+                                        tooltip: @tr("Choose another file");
+                                        clicked => { root.choose-file(); }
+                                    }
+                                    RoundButton {
+                                        icon: @image-url("icons/folder.svg");
+                                        tooltip: @tr("Choose another folder");
+                                        tip-at-end: true;
+                                        clicked => { root.choose-folder(); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 8px;
+                        Label { text: @tr("Size"); }
+                        ConnectedGroup {
+                            selected <=> root.preset;
+                            choices: [
+                                { title: @tr("Standard"), detail: root.sizes-are-totals ? @tr("about {}", root.preset-sizes[0]) : @tr("{} an hour", root.preset-sizes[0]) },
+                                { title: @tr("Small"), detail: root.sizes-are-totals ? @tr("about {}", root.preset-sizes[1]) : @tr("{} an hour", root.preset-sizes[1]) },
+                                { title: @tr("Smallest"), detail: root.sizes-are-totals ? @tr("about {}", root.preset-sizes[2]) : @tr("{} an hour", root.preset-sizes[2]) },
+                            ];
+                            changed => { root.options-changed(); }
+                        }
+                        Text {
+                            text: root.preset == 0 ? @tr("Clear speech. The safe choice.")
+                                : root.preset == 1 ? @tr("Smaller. A little rougher on noisy recordings.")
+                                : @tr("As small as speech stays clear. Try it on one lecture first.");
+                            color: MaterialPalette.on-surface-variant;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                    }
+
+                    if root.source-is-folder: Rectangle {
+                        border-radius: 24px;
+                        background: MaterialPalette.surface-container-low;
+                        VerticalLayout {
+                            padding: 4px;
+                            SwitchRow {
+                                title: @tr("Include subfolders");
+                                detail: @tr("Keeps the same folders in the output");
+                                checked <=> root.recursive;
+                                toggled => { root.options-changed(); }
+                            }
+                            SwitchRow {
+                                title: @tr("Also convert audio files");
+                                detail: @tr("Not only videos");
+                                checked <=> root.include-audio;
+                                toggled => { root.options-changed(); }
+                            }
+                        }
+                    }
+
+                    PathField {
+                        label: @tr("Save to");
+                        browse-label: @tr("Change");
+                        text <=> root.output;
+                        edited => { root.options-changed(); }
+                        browse => { root.choose-output(); }
+                    }
+
+                    Rectangle { vertical-stretch: 1; }
+
+                    VerticalLayout {
+                        spacing: 8px;
+                        if root.can-start && root.already-done > 0: Text {
+                            text: @tr("{n} already converted file will be left alone" | "{n} already converted files will be left alone" % root.already-done);
+                            color: MaterialPalette.on-surface-variant;
+                            font-size: 13px;
+                            horizontal-alignment: center;
+                        }
+                        ExpressiveButton {
+                            text: @tr("Start");
+                            icon: @image-url("icons/play.svg");
+                            large: true;
+                            enabled: root.can-start;
+                            clicked => { root.begin(); }
+                        }
+                    }
+                }
+            }
+
+            // Converting.
+            View {
+                current: root.stage == Stage.working;
+                VerticalLayout {
+                    spacing: 16px;
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                        border-radius: 32px;
+                        background: MaterialPalette.surface-container;
+                        VerticalLayout {
+                            padding: 32px;
+                            spacing: 8px;
+                            alignment: center;
+                            HorizontalLayout {
+                                alignment: center;
+                                Badge {
+                                    icon: @image-url("icons/wave.svg");
+                                    size: 104px;
+                                    turning: root.stage == Stage.working;
+                                    clock: root.clock;
+                                }
+                            }
+                            Rectangle { height: 8px; }
+                            Text {
+                                text: root.reading ? @tr("Reading…") : @tr("{}%", round(root.progress * 100));
+                                color: MaterialPalette.on-surface;
+                                font-size: root.reading ? 36px : 64px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                            }
+                            Rectangle { height: 4px; }
+                            WavyProgress {
+                                progress: root.progress;
+                                moving: root.stage == Stage.working && !root.cancelling;
+                                clock: root.clock;
+                            }
+                            Rectangle { height: 4px; }
+                            Text {
+                                text: root.cancelling ? @tr("Stopping…")
+                                    : root.time-left != "" ? @tr("{} left · {} faster than playing it", root.time-left, root.speed)
+                                    : @tr("Working out how long it will take…");
+                                color: MaterialPalette.on-surface-variant;
+                                font-size: 15px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        border-radius: 24px;
+                        background: MaterialPalette.surface-container-low;
+                        min-height: 72px;
+                        HorizontalLayout {
+                            padding-left: 20px;
+                            padding-right: 20px;
+                            spacing: 12px;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 2px;
+                                Label {
+                                    text: root.total-files > 1 ? @tr("File {} of {}", root.current-index, root.total-files) : @tr("Converting");
+                                }
+                                Text {
+                                    text: root.current-name;
+                                    color: MaterialPalette.on-surface;
+                                    font-size: 15px;
+                                    font-weight: 500;
+                                    overflow: elide;
+                                }
+                            }
+                        }
+                    }
+
+                    ExpressiveButton {
+                        text: @tr("Cancel");
+                        icon: @image-url("icons/close.svg");
+                        kind: ButtonKind.tonal;
+                        large: true;
+                        enabled: !root.cancelling;
+                        clicked => { root.cancel(); }
+                    }
+                }
+            }
+
+            // The result.
+            View {
+                current: root.stage == Stage.done;
+                VerticalLayout {
+                    spacing: 16px;
+
+                    result := Rectangle {
+                        border-radius: 32px;
+                        background: root.failed > 0 && root.converted == 0 ? MaterialPalette.error-container
+                            : root.was-cancelled ? MaterialPalette.surface-container : MaterialPalette.primary-container;
+                        property <color> content: root.failed > 0 && root.converted == 0 ? MaterialPalette.on-error-container
+                            : root.was-cancelled ? MaterialPalette.on-surface : MaterialPalette.on-primary-container;
+                        VerticalLayout {
+                            padding: 28px;
+                            spacing: 4px;
+                            alignment: center;
+                            HorizontalLayout {
+                                alignment: center;
+                                Badge {
+                                    icon: root.converted > 0 && !root.was-cancelled ? @image-url("icons/check.svg") : @image-url("icons/alert.svg");
+                                    container: root.failed > 0 && root.converted == 0 ? MaterialPalette.error
+                                        : root.was-cancelled ? MaterialPalette.outline : MaterialPalette.primary;
+                                    content: root.failed > 0 && root.converted == 0 ? MaterialPalette.on-error : MaterialPalette.on-primary;
+                                    size: 88px;
+                                }
+                            }
+                            Rectangle { height: 8px; }
+                            Text {
+                                text: root.was-cancelled ? @tr("Cancelled")
+                                    : root.converted == 0 ? @tr("Nothing was converted")
+                                    : root.failed > 0 ? @tr("Done, with problems") : @tr("Done");
+                                color: result.content;
+                                font-size: 28px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                            }
+                            if root.converted > 0: Text {
+                                text: @tr("{} is now {}", root.size-before, root.size-after);
+                                color: result.content;
+                                font-size: 18px;
+                                font-weight: 500;
+                                horizontal-alignment: center;
+                            }
+                            if root.converted > 0: Text {
+                                text: @tr("{n} file · {} of the original size · took {}" | "{n} files · {} of the original size · took {}" % root.converted, root.share, root.elapsed);
+                                color: result.content;
+                                opacity: 0.8;
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    if root.problems.length > 0: Rectangle {
+                        vertical-stretch: 1;
+                        border-radius: 24px;
+                        background: MaterialPalette.surface-container-low;
+                        clip: true;
+                        VerticalLayout {
+                            padding: 16px;
+                            padding-right: 8px;
+                            spacing: 8px;
+                            Label {
+                                text: root.failed > 0 ? @tr("{n} file could not be converted" | "{n} files could not be converted" % root.failed) : @tr("Worth a look");
+                            }
+                            ScrollView {
+                                VerticalLayout {
+                                    alignment: start;
+                                    spacing: 10px;
+                                    padding-right: 12px;
+                                    for problem in root.problems: HorizontalLayout {
+                                        spacing: 12px;
+                                        VerticalLayout {
+                                            alignment: start;
+                                            horizontal-stretch: 0;
+                                            padding-top: 2px;
+                                            Icon {
+                                                source: @image-url("icons/alert.svg");
+                                                colorize: problem.failed ? MaterialPalette.error : MaterialPalette.on-surface-variant;
+                                                width: 20px;
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            spacing: 0px;
+                                            Text {
+                                                text: problem.name;
+                                                color: MaterialPalette.on-surface;
+                                                font-size: 14px;
+                                                font-weight: 500;
+                                                overflow: elide;
+                                            }
+                                            Text {
+                                                text: problem.reason;
+                                                color: MaterialPalette.on-surface-variant;
+                                                font-size: 13px;
+                                                wrap: word-wrap;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if root.problems.length == 0: Rectangle { vertical-stretch: 1; }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ExpressiveButton {
+                            horizontal-stretch: 1;
+                            text: @tr("Convert more");
+                            icon: @image-url("icons/back.svg");
+                            kind: root.converted > 0 ? ButtonKind.tonal : ButtonKind.filled;
+                            large: true;
+                            clicked => { root.again(); }
+                        }
+                        if root.converted > 0: ExpressiveButton {
+                            horizontal-stretch: 1;
+                            text: @tr("Show the files");
+                            icon: @image-url("icons/open.svg");
+                            large: true;
+                            clicked => { root.open-output(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // About, over everything.
+    Rectangle {
+        property <float> presence: root.about-open ? 1 : 0;
+        visible: self.presence > 0.01;
+        opacity: self.presence;
+        background: MaterialPalette.scrim.with-alpha(0.45);
+        animate presence { duration: Motion.fast; easing: Motion.smooth; }
+
+        TouchArea {
+            clicked => { root.about-open = false; }
+        }
+
+        Rectangle {
+            width: min(root.width - 48px, 440px);
+            height: about.preferred-height;
+            y: (parent.height - self.height) / 2 + (1 - parent.presence) * 24px;
+            border-radius: 32px;
+            background: MaterialPalette.surface-container-high;
+            TouchArea { }
+            about := VerticalLayout {
+                padding: 28px;
+                spacing: 12px;
+                Text {
+                    text: @tr("istma {}", root.version);
+                    color: MaterialPalette.on-surface;
+                    font-size: 24px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: @tr("Turns lecture videos and recordings into small Opus audio files: one voice channel, tuned for speech, playable in any current browser, phone or media player.");
+                    color: MaterialPalette.on-surface-variant;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: @tr("Built on FFmpeg (LGPL 2.1 or later) and libopus (BSD). The typeface is IBM Plex Sans Arabic (SIL Open Font License). The interface is made with Slint and its Material components.");
+                    color: MaterialPalette.on-surface-variant;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    AboutSlint {
+                        width: 150px;
+                        height: 112px;
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    ExpressiveButton {
+                        text: @tr("Close");
+                        kind: ButtonKind.tonal;
+                        clicked => { root.about-open = false; }
+                    }
+                }
+            }
+        }
+    }
+}

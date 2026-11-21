@@ -1,0 +1,81 @@
+# One self-contained file per system. Nothing here has run yet: it needs the repository on GitHub.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    # An old distribution on purpose: the file then runs on anything with glibc 2.31 or newer.
+    container: debian:bullseye
+    steps:
+      - name: System packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential ca-certificates curl ffmpeg git \
+            libfontconfig1-dev nasm pkg-config shellcheck xz-utils
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v4
+      - run: ./first_time_setup.sh
+      - run: just check
+      - run: just dist-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: istma-linux-x86_64
+          path: work/dist/
+
+  windows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 nasm
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v4
+      - run: ./first_time_setup.sh
+      - run: just dist-windows
+      - name: Only DLLs that ship with Windows
+        run: |
+          x86_64-w64-mingw32-objdump -p work/dist/istma-windows-x86_64.exe | grep 'DLL Name' | sort -u
+          ! x86_64-w64-mingw32-objdump -p work/dist/istma-windows-x86_64.exe | grep -Ei 'DLL Name: lib(gcc|winpthread|stdc|ssp)'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: istma-windows-x86_64
+          path: work/dist/
+
+  macos:
+    runs-on: macos-14
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - name: System packages
+        run: |
+          brew install nasm
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v4
+      - run: ./first_time_setup.sh
+      - name: Both architectures
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          just deps aarch64-apple-darwin
+          just deps x86_64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+      - name: One universal file, and the app around it
+        run: |
+          mkdir -p work/dist
+          lipo -create -output work/dist/istma-macos \
+            target/aarch64-apple-darwin/release/istma target/x86_64-apple-darwin/release/istma
+          tool/macos-app.sh work/dist/istma-macos work/dist
+          (cd work/dist && ditto -c -k --keepParent Istma.app Istma-macos.zip && rm -r Istma.app)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: istma-macos
+          path: work/dist/

@@ -1,0 +1,12 @@
+# Downloads, dependency builds, test fixtures and release files (never shared).
+work/
+
+# Rust
+target/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+*.log
