@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# One-time bootstrap for nitfeh. Run from Bash, ideally inside the distrobox (see
-# distrobox.ini). Installs checksum-verified Just and rustup when they are missing
-# or too old, checks what building nitfeh needs, then runs `just setup`, which
-# installs the Rust pinned in rust-toolchain.toml and builds FFmpeg and libopus.
-# Safe to re-run.
+# One-time bootstrap for nitfeh outside the distrobox (the box in distrobox.ini
+# installs all of this itself when it is created). Installs checksum-verified Just
+# and rustup when they are missing or too old, checks what building nitfeh needs,
+# then runs `just setup`, which installs the Rust pinned in rust-toolchain.toml and
+# builds FFmpeg and libopus. Safe to re-run.
 set -euo pipefail
 
 JUST_VERSION="1.57.0"

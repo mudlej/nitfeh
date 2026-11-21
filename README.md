@@ -50,15 +50,17 @@ All three are mono, 16 kHz, libopus with `application=voip`, 60 ms frames and VB
 
 ## Building from source
 
-    distrobox assemble create --file distrobox.ini && distrobox enter nitfeh    # optional: the box with every tool
-    ./first_time_setup.sh
+    distrobox assemble create --file distrobox.ini && distrobox enter nitfeh
     just run        # build and open the window; `just run lecture.mp4` converts
     just check      # formatting, lints, tests and shellcheck
     just dist       # work/dist/nitfeh-linux-x86_64 and nitfeh-windows-x86_64.exe
     just dist-macos # on a Mac: work/dist/Nitfeh-macos.zip
 
-`first_time_setup.sh` adds Just and rustup when they are missing, installs the Rust pinned in
-`rust-toolchain.toml`, and builds static FFmpeg and libopus from checksum-pinned sources into `work/deps/`.
+Creating the box installs every tool, Just and rustup included. The first recipe then installs the Rust pinned in
+`rust-toolchain.toml` and builds static FFmpeg and libopus from checksum-pinned sources into `work/deps/`.
+Without the box, on Linux or macOS, run `./first_time_setup.sh` once instead: it adds Just and rustup when they
+are missing and says which system packages it could not find.
+
 `just` lists every recipe. The tests use the system's `ffmpeg` and `ffprobe` to make sample files and skip
 themselves without them.
 

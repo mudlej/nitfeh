@@ -4,7 +4,8 @@
 - Pushing a tag `v<version>` publishes a release (`.github/workflows/release.yml`); the tag must equal the version in
   `Cargo.toml`. `ci.yml` and `release.yml` both call `build.yml`, which builds and starts all three files.
 - Use only `just` recipes (`just` lists them); they use the Rust pinned in `rust-toolchain.toml`. New commands
-  become recipes in `justfile`. `first_time_setup.sh` is the bootstrap; `tool/` holds what recipes call.
+  become recipes in `justfile`. The box in `distrobox.ini` installs its tools itself (init hooks);
+  `first_time_setup.sh` is the bootstrap outside the box; `tool/` holds what recipes call.
 - Everything produced locally goes under `work/` (FFmpeg and libopus in `work/deps`, release files in `work/dist`,
   screenshots in `work/shots`) or `target/`; git ignores both.
 - `just check` must pass before handing work back.
