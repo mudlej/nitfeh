@@ -1,42 +1,42 @@
-#ifndef ISTMA_TRANSCODE_H
-#define ISTMA_TRANSCODE_H
+#ifndef NITFEH_TRANSCODE_H
+#define NITFEH_TRANSCODE_H
 
 #include <stdint.h>
 
 /* Return codes. Negative values are failures; `err` then holds a message. */
-#define ISTMA_OK 0
-#define ISTMA_CANCELLED 1
-#define ISTMA_ERROR -1
-#define ISTMA_NO_AUDIO -2
+#define NITFEH_OK 0
+#define NITFEH_CANCELLED 1
+#define NITFEH_ERROR -1
+#define NITFEH_NO_AUDIO -2
 
-typedef struct IstmaInfo {
+typedef struct NitfehInfo {
     int64_t duration_us; /* 0 when unknown */
     int has_audio;
     int sample_rate;
     int channels;
     char codec[32];
-} IstmaInfo;
+} NitfehInfo;
 
-typedef struct IstmaOptions {
+typedef struct NitfehOptions {
     int bitrate;     /* bits per second */
     int sample_rate; /* 8000, 12000, 16000, 24000 or 48000 */
     int frame_ms;    /* Opus frame duration */
-} IstmaOptions;
+} NitfehOptions;
 
-typedef struct IstmaResult {
+typedef struct NitfehResult {
     int64_t duration_us; /* audio written */
     int decode_errors;   /* corrupt packets that were skipped */
     int truncated;       /* the input ended with a read error rather than a clean end */
-} IstmaResult;
+} NitfehResult;
 
 /* Called about once per second of audio. A non-zero return cancels the job. */
-typedef int (*istma_progress_fn)(void *opaque, int64_t done_us, int64_t total_us);
+typedef int (*nitfeh_progress_fn)(void *opaque, int64_t done_us, int64_t total_us);
 
 /* Paths are UTF-8 on every platform. */
-void istma_init(int verbose);
-int istma_probe(const char *path, IstmaInfo *info, char *err, int err_len);
-int istma_transcode(const char *in_path, const char *out_path, const IstmaOptions *options,
-                    istma_progress_fn progress, void *opaque, IstmaResult *result, char *err,
-                    int err_len);
+void nitfeh_init(int verbose);
+int nitfeh_probe(const char *path, NitfehInfo *info, char *err, int err_len);
+int nitfeh_transcode(const char *in_path, const char *out_path, const NitfehOptions *options,
+                     nitfeh_progress_fn progress, void *opaque, NitfehResult *result, char *err,
+                     int err_len);
 
 #endif

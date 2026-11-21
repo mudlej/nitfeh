@@ -13,7 +13,7 @@ fn main() {
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         println!("cargo:rerun-if-changed=assets/windows");
         winresource::WindowsResource::new()
-            .set_icon("assets/windows/istma.ico")
+            .set_icon("assets/windows/nitfeh.ico")
             .set_manifest_file("assets/windows/app.manifest")
             .compile()
             .expect("the Windows resources do not compile");
@@ -21,9 +21,9 @@ fn main() {
 
     let target = env::var("TARGET").unwrap();
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let deps = env::var_os("ISTMA_DEPS").map(PathBuf::from).unwrap_or_else(|| root.join("work/deps").join(&target));
+    let deps = env::var_os("NITFEH_DEPS").map(PathBuf::from).unwrap_or_else(|| root.join("work/deps").join(&target));
 
-    println!("cargo:rerun-if-env-changed=ISTMA_DEPS");
+    println!("cargo:rerun-if-env-changed=NITFEH_DEPS");
     println!("cargo:rerun-if-changed=native/transcode.c");
     println!("cargo:rerun-if-changed=native/transcode.h");
     println!("cargo:rerun-if-changed={}", deps.join(".stamp").display());
@@ -41,7 +41,7 @@ fn main() {
         .include(deps.join("include"))
         .flag_if_supported("-Werror=implicit-function-declaration")
         .flag_if_supported("-Werror=int-conversion")
-        .compile("istma_native");
+        .compile("nitfeh_native");
 
     println!("cargo:rustc-link-search=native={}", deps.join("lib").display());
     for lib in STATIC_LIBS {

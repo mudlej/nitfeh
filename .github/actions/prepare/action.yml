@@ -1,0 +1,24 @@
+name: Prepare
+description: The pinned Rust, just, and what nitfeh builds and tests with on this runner
+
+runs:
+  using: composite
+  steps:
+    - name: Packages (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      # ffmpeg makes the tests' sample files; mingw-w64 builds the Windows file.
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends ffmpeg libfontconfig1-dev mingw-w64 nasm pkg-config shellcheck
+    - name: Packages (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: brew install nasm pkgconf
+    - name: The Rust pinned in rust-toolchain.toml
+      shell: bash
+      run: rustup toolchain install --no-self-update
+    - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+      with:
+        tool: just
+    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3

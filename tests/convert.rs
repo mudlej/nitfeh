@@ -1,4 +1,4 @@
-//! End-to-end checks of the `istma` binary. The system `ffmpeg` and `ffprobe` only make the fixtures and
+//! End-to-end checks of the `nitfeh` binary. The system `ffmpeg` and `ffprobe` only make the fixtures and
 //! inspect the results; without them these tests pass without checking anything.
 
 use std::fs;
@@ -31,8 +31,8 @@ fn fixture(path: &Path, codec: &[&str], audio_only: bool) {
     assert!(out.status.success(), "ffmpeg could not make {}: {}", path.display(), String::from_utf8_lossy(&out.stderr));
 }
 
-fn istma(args: &[&str], dir: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_istma")).args(args).current_dir(dir).output().unwrap()
+fn nitfeh(args: &[&str], dir: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_nitfeh")).args(args).current_dir(dir).output().unwrap()
 }
 
 fn probe(path: &Path, entries: &str) -> String {
@@ -84,7 +84,7 @@ fn every_common_container_converts() {
     for (name, codec) in cases {
         fixture(&dir.path().join("in").join(name), codec, false);
     }
-    let out = istma(&["in", "out"], dir.path());
+    let out = nitfeh(&["in", "out"], dir.path());
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     for (name, _) in cases {
         assert_good_opus(&dir.path().join("out").join(name).with_extension("opus"));
@@ -105,7 +105,7 @@ fn folders_names_and_resume() {
     fixture(&input.join("voice.wav"), &["-c:a", "pcm_s16le"], true);
 
     // Flat, videos only, into the default sibling folder.
-    let out = istma(&["دروس"], dir.path());
+    let out = nitfeh(&["دروس"], dir.path());
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     let output = dir.path().join("دروس-opus");
     assert_good_opus(&output.join("المحاضرة الأولى.opus"));
@@ -115,13 +115,13 @@ fn folders_names_and_resume() {
     assert!(!output.join("voice.opus").exists());
 
     // Subfolders and audio are opt-in; what is done is not done again.
-    let out = istma(&["-r", "-a", "دروس"], dir.path());
+    let out = nitfeh(&["-r", "-a", "دروس"], dir.path());
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     assert!(String::from_utf8_lossy(&out.stdout).contains("2 files converted, 3 already done"));
     assert_good_opus(&output.join("week 2").join("part 1: intro.opus"));
     assert_good_opus(&output.join("voice.opus"));
 
-    let out = istma(&["-r", "-a", "دروس"], dir.path());
+    let out = nitfeh(&["-r", "-a", "دروس"], dir.path());
     assert!(String::from_utf8_lossy(&out.stdout).contains("Nothing to do"));
     assert!(leftovers(dir.path()).is_empty());
 }
@@ -135,7 +135,7 @@ fn presets_shrink_the_file() {
     fixture(&dir.path().join("a.mp4"), &["-c:v", "mpeg4", "-c:a", "aac"], false);
     let size = |preset: &str| {
         let name = format!("{preset}.opus");
-        let out = istma(&["-p", preset, "a.mp4", &name], dir.path());
+        let out = nitfeh(&["-p", preset, "a.mp4", &name], dir.path());
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         assert_good_opus(&dir.path().join(&name));
         fs::metadata(dir.path().join(name)).unwrap().len()
@@ -155,7 +155,7 @@ fn bad_files_fail_without_stopping_the_rest() {
     fixture(&input.join("silent.mp4"), &["-c:v", "mpeg4", "-an"], false);
     fs::write(input.join("junk.mp4"), b"this is not a video").unwrap();
 
-    let out = istma(&["in", "out"], dir.path());
+    let out = nitfeh(&["in", "out"], dir.path());
     assert_eq!(out.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("failed: silent.mp4: no audio track"), "{stderr}");
@@ -180,7 +180,7 @@ fn interrupting_leaves_nothing_half_done() {
         .unwrap();
     assert!(made.success());
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_istma"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_nitfeh"))
         .args(["long.flac", "long.opus"])
         .current_dir(dir.path())
         .stdout(Stdio::null())

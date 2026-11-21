@@ -49,9 +49,9 @@ def main() -> int:
     (assets / "macos").mkdir(parents=True, exist_ok=True)
 
     render(256).save(assets / "icon.png")
-    render(256).save(assets / "windows" / "istma.ico", sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
-    render(1024).save(assets / "macos" / "istma.icns")
-    print("wrote assets/icon.png, assets/windows/istma.ico, assets/macos/istma.icns")
+    render(256).save(assets / "windows" / "nitfeh.ico", sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
+    render(1024).save(assets / "macos" / "nitfeh.icns")
+    print("wrote assets/icon.png, assets/windows/nitfeh.ico, assets/macos/nitfeh.icns")
     return 0
 
 

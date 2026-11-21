@@ -41,7 +41,7 @@ pub struct Job {
     pub duration: Option<Duration>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Plan {
     pub jobs: Vec<Job>,
     /// Left alone because their output is already there.

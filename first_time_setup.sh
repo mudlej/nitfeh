@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# One-time bootstrap for istma. Run from Bash, ideally inside the distrobox (see
+# One-time bootstrap for nitfeh. Run from Bash, ideally inside the distrobox (see
 # distrobox.ini). Installs checksum-verified Just and rustup when they are missing
-# or too old, checks what building istma needs, then runs `just setup`, which
+# or too old, checks what building nitfeh needs, then runs `just setup`, which
 # installs the Rust pinned in rust-toolchain.toml and builds FFmpeg and libopus.
 # Safe to re-run.
 set -euo pipefail
@@ -9,7 +9,7 @@ set -euo pipefail
 JUST_VERSION="1.57.0"
 RUSTUP_VERSION="1.29.3"
 ROOT_DIR="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-BIN_DIR="${ISTMA_BIN_DIR:-${HOME:-}/.local/bin}"
+BIN_DIR="${NITFEH_BIN_DIR:-${HOME:-}/.local/bin}"
 CARGO_BIN_DIR="${CARGO_HOME:-${HOME:-}/.cargo}/bin"
 
 fail() {
@@ -68,7 +68,7 @@ select_assets() {
       JUST_SHA256="0381db216c2f97ce31d838a1562c1064dfbfa73f5a8a81581338a2cd9217df47"
       RUSTUP_SHA256="63752a1919a3a4793173ec70f8f212621a7ce38ba6a246095984482f4de20f9f"
       ;;
-    *) fail "Unsupported system: $(uname -s) $(uname -m). Build istma on Linux or macOS." ;;
+    *) fail "Unsupported system: $(uname -s) $(uname -m). Build nitfeh on Linux or macOS." ;;
   esac
   JUST_ARCHIVE="just-$JUST_VERSION-$just_target.tar.gz"
   JUST_URL="https://github.com/casey/just/releases/download/$JUST_VERSION/$JUST_ARCHIVE"
@@ -145,7 +145,7 @@ main() {
 
   [[ -n "${HOME:-}" ]] || fail "HOME is not set."
   select_assets
-  TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/istma-setup.XXXXXX")" || fail "Cannot create a temporary directory."
+  TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nitfeh-setup.XXXXXX")" || fail "Cannot create a temporary directory."
   trap 'rm -rf -- "$TEMP_DIR"' EXIT
 
   local missing_from_path=()
@@ -167,7 +167,7 @@ main() {
   if has_command rustup; then
     echo "$(rustup --version 2>/dev/null | head -n1 | cut -d' ' -f1-2) is already installed."
   elif has_command cargo; then
-    echo "NOTE: cargo is here without rustup, so rust-toolchain.toml is not applied; istma needs Rust 1.88 or newer."
+    echo "NOTE: cargo is here without rustup, so rust-toolchain.toml is not applied; nitfeh needs Rust 1.88 or newer."
   else
     install_rustup
     [[ " ${missing_from_path[*]} " != *" $CARGO_BIN_DIR "* ]] || add_to_profile "$CARGO_BIN_DIR"
@@ -182,7 +182,7 @@ main() {
   if has_command cc && has_command make; then
     echo "Running project setup (the first run downloads and builds FFmpeg and libopus)."
     (cd "$ROOT_DIR" && just setup)
-    echo "istma is ready. Start with: just run   (or: just --list)"
+    echo "nitfeh is ready. Start with: just run   (or: just --list)"
   else
     echo "A C compiler and make are missing, so the project was not set up. Enter the distrobox and run this again."
   fi

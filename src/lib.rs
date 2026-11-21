@@ -1,4 +1,4 @@
-//! istma compresses lecture audio: any video or audio file becomes a small mono Opus file.
+//! nitfeh compresses lecture audio: any video or audio file becomes a small mono Opus file.
 
 pub mod cli;
 pub mod engine;

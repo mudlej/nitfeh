@@ -1,8 +1,10 @@
 [package]
-name = "istma"
+name = "nitfeh"
 version = "0.1.0"
 edition = "2024"
-description = "Compress lecture audio: any video or audio file to small mono Opus."
+description = "Small audio from long lectures: any video or audio file to speech-tuned mono Opus."
+license = "GPL-3.0-or-later"
+repository = "https://github.com/mudlej/nitfeh"
 publish = false
 
 [features]

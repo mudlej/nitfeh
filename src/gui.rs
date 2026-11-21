@@ -58,7 +58,7 @@ pub fn run(input: Option<PathBuf>) -> Result<(), slint::PlatformError> {
     ui.set_version(env!("CARGO_PKG_VERSION").into());
     ui.set_preset_sizes(preset_sizes(None));
 
-    match std::env::var("ISTMA_THEME").as_deref() {
+    match std::env::var("NITFEH_THEME").as_deref() {
         Ok("dark") => ui.invoke_use_scheme(true),
         Ok("light") => ui.invoke_use_scheme(false),
         _ => {}
@@ -248,7 +248,7 @@ fn rescan(ui: &App) {
         match scanned {
             Err(e) => show(&weak, Err(e.to_string()), true),
             Ok(mut plan) => {
-                show(&weak, Ok(clone_plan(&plan)), false);
+                show(&weak, Ok(plan.clone()), false);
                 runner::probe_durations(&mut plan.jobs, &cancel, &mut |_| {});
                 if !cancel.load(Ordering::SeqCst) {
                     show(&weak, Ok(plan), true);
@@ -256,10 +256,6 @@ fn rescan(ui: &App) {
             }
         }
     });
-}
-
-fn clone_plan(plan: &Plan) -> Plan {
-    Plan { jobs: plan.jobs.clone(), existing: plan.existing.clone(), output: plan.output.clone() }
 }
 
 fn show_scan(ui: &App, result: Result<Plan, String>, complete: bool) {

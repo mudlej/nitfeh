@@ -1,12 +1,11 @@
-# Downloads, dependency builds, test fixtures and release files (never shared).
-work/
+/target
 
-# Rust
-target/
+# Everything produced locally: downloads, the FFmpeg and libopus builds, release files, screenshots.
+/work/
+
+__pycache__/
 
 # IDE / OS
 .idea/
 .vscode/
 .DS_Store
-
-*.log

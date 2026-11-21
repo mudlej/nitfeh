@@ -41,9 +41,9 @@ struct RawResult {
 type ProgressFn = extern "C" fn(*mut c_void, i64, i64) -> c_int;
 
 unsafe extern "C" {
-    fn istma_init(verbose: c_int);
-    fn istma_probe(path: *const c_char, info: *mut RawInfo, err: *mut c_char, err_len: c_int) -> c_int;
-    fn istma_transcode(
+    fn nitfeh_init(verbose: c_int);
+    fn nitfeh_probe(path: *const c_char, info: *mut RawInfo, err: *mut c_char, err_len: c_int) -> c_int;
+    fn nitfeh_transcode(
         in_path: *const c_char,
         out_path: *const c_char,
         options: *const RawOptions,
@@ -97,7 +97,7 @@ pub enum Outcome {
 
 fn init() {
     static ONCE: Once = Once::new();
-    ONCE.call_once(|| unsafe { istma_init(std::env::var_os("ISTMA_FFMPEG_LOG").is_some() as c_int) });
+    ONCE.call_once(|| unsafe { nitfeh_init(std::env::var_os("NITFEH_FFMPEG_LOG").is_some() as c_int) });
 }
 
 fn c_path(path: &Path) -> Result<CString, Error> {
@@ -127,7 +127,7 @@ pub fn probe(path: &Path) -> Result<Info, Error> {
     let path = c_path(path)?;
     let mut raw = RawInfo::default();
     let mut err = [0 as c_char; 256];
-    let code = unsafe { istma_probe(path.as_ptr(), &mut raw, err.as_mut_ptr(), err.len() as c_int) };
+    let code = unsafe { nitfeh_probe(path.as_ptr(), &mut raw, err.as_mut_ptr(), err.len() as c_int) };
     if code != OK {
         return Err(failure(code, &err));
     }
@@ -171,7 +171,7 @@ pub fn transcode(
     let mut err = [0 as c_char; 256];
     let mut callback: Callback = progress;
     let code = unsafe {
-        istma_transcode(
+        nitfeh_transcode(
             input.as_ptr(),
             output.as_ptr(),
             &options,

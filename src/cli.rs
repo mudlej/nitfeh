@@ -1,4 +1,4 @@
-//! The command line: `istma [OPTIONS] <INPUT> [OUTPUT]`.
+//! The command line: `nitfeh [OPTIONS] <INPUT> [OUTPUT]`.
 
 use std::io::IsTerminal;
 use std::path::PathBuf;
@@ -21,10 +21,10 @@ const EXIT_CANCELLED: u8 = 130;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "istma",
+    name = "nitfeh",
     version,
     about = "Compress lecture audio: any video or audio file to a small mono Opus file.",
-    after_help = "Examples:\n  istma lecture.mp4                 lecture.opus beside it\n  istma lecture.mp4 small.opus\n  istma course/                     every video in course/ into course-opus/\n  istma -r -p small course/ out/    subfolders too, at 10 kbps"
+    after_help = "Examples:\n  nitfeh lecture.mp4                 lecture.opus beside it\n  nitfeh lecture.mp4 small.opus\n  nitfeh course/                     every video in course/ into course-opus/\n  nitfeh -r -p small course/ out/    subfolders too, at 10 kbps"
 )]
 pub struct Args {
     /// A video or audio file, or a folder of them
@@ -94,8 +94,8 @@ fn window(input: Option<PathBuf>) -> ExitCode {
     match crate::gui::run(input) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("istma: cannot open a window: {e}");
-            eprintln!("The command line works without one: istma --help");
+            eprintln!("nitfeh: cannot open a window: {e}");
+            eprintln!("The command line works without one: nitfeh --help");
             ExitCode::from(EXIT_FAILED)
         }
     }
@@ -129,13 +129,13 @@ pub fn run(args: Args) -> ExitCode {
     let options =
         ScanOptions { recursive: args.recursive, include_audio: args.include_audio, overwrite: args.overwrite };
     let Some(input) = args.input.as_deref() else {
-        eprintln!("istma: no input given");
+        eprintln!("nitfeh: no input given");
         return ExitCode::from(EXIT_FAILED);
     };
     let plan = match scan::plan(input, args.output.as_deref(), options) {
         Ok(plan) => plan,
         Err(e) => {
-            eprintln!("istma: {e}");
+            eprintln!("nitfeh: {e}");
             return ExitCode::from(EXIT_FAILED);
         }
     };
@@ -147,7 +147,7 @@ pub fn run(args: Args) -> ExitCode {
                 (true, false) => " (audio files: -a)",
                 (true, true) => "",
             };
-            eprintln!("istma: nothing to convert in {}{hint}", input.display());
+            eprintln!("nitfeh: nothing to convert in {}{hint}", input.display());
             return ExitCode::from(EXIT_FAILED);
         }
         println!("Nothing to do: all {} already converted (--overwrite to redo).", text::files(plan.existing.len()));

@@ -13,6 +13,9 @@ FFMPEG_URL="https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz"
 FFMPEG_SHA256=8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
 
 die() { printf 'deps: %s\n' "$*" >&2; exit 1; }
+sha256_of() { # macOS has shasum, not sha256sum
+  if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
 say() { printf '\033[36m▸\033[0m %s\n' "$*"; }
 
 TARGET="${1:-$(rustc -vV | sed -n 's/^host: //p')}"
@@ -55,7 +58,7 @@ if [[ "$TARGET" == x86_64-* ]] && ! command -v nasm >/dev/null; then
 fi
 
 STAMP="$PREFIX/.stamp"
-WANT="opus=$OPUS_VERSION ffmpeg=$FFMPEG_VERSION flags=${opus_flags[*]} ${ffmpeg_flags[*]} script=$(sha256sum "${BASH_SOURCE[0]}" | cut -c1-16)"
+WANT="opus=$OPUS_VERSION ffmpeg=$FFMPEG_VERSION flags=${opus_flags[*]} ${ffmpeg_flags[*]} script=$(sha256_of "${BASH_SOURCE[0]}" | cut -c1-16)"
 if [[ -f "$STAMP" && "$(cat "$STAMP")" == "$WANT" ]]; then
   say "work/deps/$TARGET is up to date"
   exit 0
@@ -68,7 +71,7 @@ fetch() { # <url> <sha256>
     curl -fsSL --retry 3 -o "$file.tmp" "$1" || die "download failed: $1"
     mv "$file.tmp" "$file"
   fi
-  echo "$2  $file" | sha256sum -c --quiet - || die "checksum mismatch: $file"
+  [[ "$(sha256_of "$file")" == "$2" ]] || die "checksum mismatch: $file"
 }
 
 say "fetching sources"

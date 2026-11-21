@@ -2159,22 +2159,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
-name = "istma"
-version = "0.1.0"
-dependencies = [
- "cc",
- "clap",
- "ctrlc",
- "indicatif",
- "rfd",
- "slint",
- "slint-build",
- "tempfile",
- "walkdir",
- "winresource",
-]
-
-[[package]]
 name = "itertools"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2608,6 +2592,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
+]
+
+[[package]]
+name = "nitfeh"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "clap",
+ "ctrlc",
+ "indicatif",
+ "rfd",
+ "slint",
+ "slint-build",
+ "tempfile",
+ "walkdir",
+ "winresource",
 ]
 
 [[package]]

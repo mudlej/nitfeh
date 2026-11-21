@@ -1,4 +1,4 @@
-# istma: the command front door. Run `just` to list recipes.
+# nitfeh: the command front door. Run `just` to list recipes.
 #
 # Everything a recipe produces lands in target/ (cargo) or work/ (downloads, the
 # FFmpeg and libopus builds, release files, screenshots); git ignores both.
@@ -14,10 +14,10 @@ host := `rustc -vV | sed -n 's/^host: //p'`
 default:
     @just --list --unsorted
 
-# Build and start istma: no arguments opens the window, `just run lecture.mp4` converts.
+# Build and start nitfeh: no arguments opens the window, `just run lecture.mp4` converts.
 [no-cd]
 run *args: build
-    @"{{ root }}/target/release/istma" "$@"
+    @"{{ root }}/target/release/nitfeh" "$@"
 
 # The pinned Rust, the crates in Cargo.lock, and FFmpeg + libopus for this computer.
 setup: deps
@@ -64,7 +64,7 @@ shot name="window" *args: build
       sleep 4
       scrot -o "{{ shots }}/{{ name }}.png"
       kill "$pid" 2>/dev/null || true
-    ' "{{ root }}/target/release/istma" "$@"
+    ' "{{ root }}/target/release/nitfeh" "$@"
     echo "{{ shots }}/{{ name }}.png"
 
 # ---------------------------------------------------------------------- builds --
@@ -73,24 +73,37 @@ shot name="window" *args: build
 build: deps
     cd "{{ root }}" && cargo build --release
 
-# The release file for Linux: work/dist/istma-linux-x86_64.
+# The release file for Linux: work/dist/nitfeh-linux-x86_64.
 dist-linux: (deps "x86_64-unknown-linux-gnu")
     cargo build --release --target x86_64-unknown-linux-gnu
-    mkdir -p "{{ dist }}" && cp target/x86_64-unknown-linux-gnu/release/istma "{{ dist }}/istma-linux-x86_64"
+    mkdir -p "{{ dist }}" && cp target/x86_64-unknown-linux-gnu/release/nitfeh "{{ dist }}/nitfeh-linux-x86_64"
 
-# The release file for Windows, cross-built with mingw-w64: work/dist/istma-windows-x86_64.exe.
+# The release file for Windows, cross-built with mingw-w64: work/dist/nitfeh-windows-x86_64.exe.
 dist-windows: (deps "x86_64-pc-windows-gnu")
     cargo build --release --target x86_64-pc-windows-gnu
-    mkdir -p "{{ dist }}" && cp target/x86_64-pc-windows-gnu/release/istma.exe "{{ dist }}/istma-windows-x86_64.exe"
+    mkdir -p "{{ dist }}" && cp target/x86_64-pc-windows-gnu/release/nitfeh.exe "{{ dist }}/nitfeh-windows-x86_64.exe"
 
-# Both release files this computer can build. macOS is built by .github/workflows/build.yml.
+# The release file for macOS, on a Mac: work/dist/Nitfeh-macos.zip (Nitfeh.app, for Intel and Apple silicon).
+dist-macos: (deps "aarch64-apple-darwin") (deps "x86_64-apple-darwin")
+    rustup target add aarch64-apple-darwin x86_64-apple-darwin
+    MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --target aarch64-apple-darwin
+    MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --target x86_64-apple-darwin
+    mkdir -p "{{ dist }}"
+    tool/macos-app.sh target/aarch64-apple-darwin/release/nitfeh target/x86_64-apple-darwin/release/nitfeh "{{ dist }}"
+
+# Both release files a Linux computer can build. The macOS one is `just dist-macos` on a Mac, or CI.
 dist: dist-linux dist-windows
     @ls -la "{{ dist }}"
+
+# Convert a generated sound with a built file and check the result: `just smoke work/dist/nitfeh-linux-x86_64`.
+[no-cd]
+smoke binary:
+    @"{{ root }}/tool/smoke.sh" "{{ binary }}"
 
 # Run the Windows file under wine: `just try-windows lecture.mp4`. A smoke test, not a real Windows.
 [no-cd]
 try-windows *args: dist-windows
-    @WINEDEBUG=-all wine "{{ dist }}/istma-windows-x86_64.exe" "$@"
+    @WINEDEBUG=-all wine "{{ dist }}/nitfeh-windows-x86_64.exe" "$@"
 
 # Re-render the icon files in assets/ from tool/icon.py (needs Pillow).
 icons:

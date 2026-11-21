@@ -49,7 +49,7 @@ static void fail(char *err, int err_len, const char *what, int code) {
 /* "file:" keeps a colon in a file name from being read as a protocol. */
 static char *file_url(const char *path) { return av_asprintf("file:%s", path); }
 
-void istma_init(int verbose) { av_log_set_level(verbose ? AV_LOG_INFO : AV_LOG_QUIET); }
+void nitfeh_init(int verbose) { av_log_set_level(verbose ? AV_LOG_INFO : AV_LOG_QUIET); }
 
 static int open_input(const char *path, AVFormatContext **in, const AVCodec **codec, char *err,
                       int err_len) {
@@ -61,21 +61,21 @@ static int open_input(const char *path, AVFormatContext **in, const AVCodec **co
     av_free(url);
     if (ret < 0) {
         fail(err, err_len, "cannot open the file", ret);
-        return ISTMA_ERROR;
+        return NITFEH_ERROR;
     }
     ret = avformat_find_stream_info(*in, NULL);
     if (ret < 0) {
         fail(err, err_len, "cannot read the file", ret);
-        return ISTMA_ERROR;
+        return NITFEH_ERROR;
     }
     ret = av_find_best_stream(*in, AVMEDIA_TYPE_AUDIO, -1, -1, codec, 0);
     if (ret == AVERROR_STREAM_NOT_FOUND) {
         fail(err, err_len, "no audio track", 0);
-        return ISTMA_NO_AUDIO;
+        return NITFEH_NO_AUDIO;
     }
     if (ret < 0) {
         fail(err, err_len, "unsupported audio format", 0);
-        return ISTMA_ERROR;
+        return NITFEH_ERROR;
     }
     return ret;
 }
@@ -89,7 +89,7 @@ static int64_t stream_duration_us(const AVFormatContext *in, int stream) {
     return 0;
 }
 
-int istma_probe(const char *path, IstmaInfo *info, char *err, int err_len) {
+int nitfeh_probe(const char *path, NitfehInfo *info, char *err, int err_len) {
     AVFormatContext *in = NULL;
     const AVCodec *codec = NULL;
     int stream;
@@ -105,7 +105,7 @@ int istma_probe(const char *path, IstmaInfo *info, char *err, int err_len) {
         snprintf(info->codec, sizeof(info->codec), "%s", avcodec_get_name(par->codec_id));
     }
     avformat_close_input(&in);
-    return stream >= 0 ? ISTMA_OK : stream;
+    return stream >= 0 ? NITFEH_OK : stream;
 }
 
 static int open_decoder(Job *job, const AVCodec *codec) {
@@ -121,7 +121,7 @@ static int open_decoder(Job *job, const AVCodec *codec) {
     return avcodec_open2(job->dec, codec, NULL);
 }
 
-static int open_output(Job *job, const char *path, const IstmaOptions *options) {
+static int open_output(Job *job, const char *path, const NitfehOptions *options) {
     const AVCodec *codec = avcodec_find_encoder_by_name("libopus");
     const AVDictionaryEntry *tag = NULL;
     const AVStream *in_stream = job->in->streams[job->stream];
@@ -299,7 +299,7 @@ end:
 }
 
 /* Sends one packet (NULL to drain) to the decoder and moves every frame it yields to the encoder. */
-static int decode(Job *job, const AVPacket *pkt, IstmaResult *result) {
+static int decode(Job *job, const AVPacket *pkt, NitfehResult *result) {
     int ret = avcodec_send_packet(job->dec, pkt);
     if (ret < 0 && ret != AVERROR_EOF && ret != AVERROR(EAGAIN)) {
         result->decode_errors++;
@@ -339,13 +339,13 @@ static void close_job(Job *job) {
     avformat_close_input(&job->in);
 }
 
-int istma_transcode(const char *in_path, const char *out_path, const IstmaOptions *options,
-                    istma_progress_fn progress, void *opaque, IstmaResult *result, char *err,
-                    int err_len) {
+int nitfeh_transcode(const char *in_path, const char *out_path, const NitfehOptions *options,
+                     nitfeh_progress_fn progress, void *opaque, NitfehResult *result, char *err,
+                     int err_len) {
     Job job = {0};
     const AVCodec *codec = NULL;
     int64_t total_us, reported_us = 0;
-    int ret, status = ISTMA_ERROR;
+    int ret, status = NITFEH_ERROR;
 
     memset(result, 0, sizeof(*result));
     job.stream = open_input(in_path, &job.in, &codec, err, err_len);
@@ -390,7 +390,7 @@ int istma_transcode(const char *in_path, const char *out_path, const IstmaOption
         if (progress && done_us - reported_us >= AV_TIME_BASE) {
             reported_us = done_us;
             if (progress(opaque, done_us, total_us)) {
-                status = ISTMA_CANCELLED;
+                status = NITFEH_CANCELLED;
                 goto end;
             }
         }
@@ -416,7 +416,7 @@ int istma_transcode(const char *in_path, const char *out_path, const IstmaOption
     result->duration_us = av_rescale(job.samples, AV_TIME_BASE, job.enc->sample_rate);
     if (progress)
         progress(opaque, result->duration_us, result->duration_us);
-    status = ISTMA_OK;
+    status = NITFEH_OK;
 
 end:
     close_job(&job);

@@ -92,7 +92,7 @@ export component App inherits Window {
     property <bool> about-open;
     property <bool> can-start: root.has-source && !root.scanning && root.to-convert > 0 && root.output != "";
 
-    title: "istma";
+    title: "Nitfeh";
     icon: @image-url("../assets/icon.png");
     preferred-width: 600px;
     preferred-height: 760px;
@@ -123,7 +123,7 @@ export component App inherits Window {
             VerticalLayout {
                 spacing: 0px;
                 Text {
-                    text: "istma";
+                    text: "Nitfeh";
                     color: MaterialPalette.on-surface;
                     font-size: 30px;
                     font-weight: 600;
@@ -584,7 +584,7 @@ export component App inherits Window {
                 padding: 28px;
                 spacing: 12px;
                 Text {
-                    text: @tr("istma {}", root.version);
+                    text: @tr("Nitfeh {}", root.version);
                     color: MaterialPalette.on-surface;
                     font-size: 24px;
                     font-weight: 600;

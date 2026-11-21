@@ -1,12 +1,14 @@
 # Agent notes
 
 - Read `README.md` first; keep it in step with behaviour.
+- Pushing a tag `v<version>` publishes a release (`.github/workflows/release.yml`); the tag must equal the version in
+  `Cargo.toml`. `ci.yml` and `release.yml` both call `build.yml`, which builds and starts all three files.
 - Use only `just` recipes (`just` lists them); they use the Rust pinned in `rust-toolchain.toml`. New commands
   become recipes in `justfile`. `first_time_setup.sh` is the bootstrap; `tool/` holds what recipes call.
 - Everything produced locally goes under `work/` (FFmpeg and libopus in `work/deps`, release files in `work/dist`,
   screenshots in `work/shots`) or `target/`; git ignores both.
 - `just check` must pass before handing work back.
-- For visual checks of the window: `just shot <name> [--gui <input>]`, then read the PNG. `ISTMA_THEME=dark|light`
+- For visual checks of the window: `just shot <name> [--gui <input>]`, then read the PNG. `NITFEH_THEME=dark|light`
   forces the theme.
 - The encoder settings in `src/preset.rs` and the pipeline in `native/transcode.c` are what the output files depend
   on. Do not change them without saying so: the result is checked against an `ffmpeg` built from the same sources.
