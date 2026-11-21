@@ -134,6 +134,7 @@ check_prerequisites() {
     has_command "$tool" || missing+=("$tool (the conversion tests skip themselves without it)")
   done
   has_command shellcheck || missing+=("shellcheck (just check)")
+  has_command msgmerge || missing+=("gettext (just strings)")
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "WARNING: missing for some recipes: ${missing[*]}"
     echo "         The distrobox (distrobox.ini) provides all of them."

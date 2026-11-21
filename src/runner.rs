@@ -2,6 +2,7 @@
 //! The CLI and the GUI only ever see these events.
 
 use std::ffi::OsString;
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -45,9 +46,43 @@ pub enum Event {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FileResult {
-    Converted { input_bytes: u64, output_bytes: u64, warning: Option<String> },
-    Failed(String),
+    Converted { input_bytes: u64, output_bytes: u64, warning: Option<Warning> },
+    Failed(Failure),
     Cancelled,
+}
+
+/// Something worth telling about a file that was converted all the same.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Warning {
+    /// The input stopped on a read error; what came before it was converted.
+    Truncated,
+    /// This many damaged packets were skipped.
+    DamagedPackets(u32),
+}
+
+impl fmt::Display for Warning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Warning::Truncated => f.write_str("the file is damaged or incomplete: converted up to where it stops"),
+            Warning::DamagedPackets(n) => write!(f, "{n} damaged audio packets were skipped"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Failure {
+    NoAudio,
+    /// The reason, as the engine or the system gave it.
+    Other(String),
+}
+
+impl fmt::Display for Failure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Failure::NoAudio => f.write_str("no audio track"),
+            Failure::Other(reason) => f.write_str(reason),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -91,7 +126,7 @@ pub fn run(mut plan: Plan, preset: Preset, cancel: &AtomicBool, mut emit: impl F
                 summary.input_bytes += input_bytes;
                 summary.output_bytes += output_bytes;
             }
-            FileResult::Failed(reason) => summary.failed.push((job.name.clone(), reason.clone())),
+            FileResult::Failed(reason) => summary.failed.push((job.name.clone(), reason.to_string())),
             FileResult::Cancelled => summary.cancelled = true,
         }
         if result != FileResult::Cancelled {
@@ -116,7 +151,7 @@ fn convert(job: &Job, preset: Preset, cancel: &AtomicBool, mut progress: impl Fn
     if let Some(parent) = job.output.parent().filter(|p| !p.as_os_str().is_empty())
         && let Err(e) = fs::create_dir_all(parent)
     {
-        return FileResult::Failed(format!("cannot create {}: {e}", parent.display()));
+        return FileResult::Failed(Failure::Other(format!("cannot create {}: {e}", parent.display())));
     }
     // The output only gets its real name once it is complete, so an interrupted run never looks finished.
     let part = part_path(&job.output);
@@ -132,7 +167,10 @@ fn convert(job: &Job, preset: Preset, cancel: &AtomicBool, mut progress: impl Fn
         }
         Err(e) => {
             let _ = fs::remove_file(&part);
-            return FileResult::Failed(e.to_string());
+            return FileResult::Failed(match e {
+                engine::Error::NoAudio => Failure::NoAudio,
+                engine::Error::Failed(reason) => Failure::Other(reason),
+            });
         }
     };
     let output_bytes = fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
@@ -142,12 +180,12 @@ fn convert(job: &Job, preset: Preset, cancel: &AtomicBool, mut progress: impl Fn
     }
     if let Err(e) = fs::rename(&part, &job.output) {
         let _ = fs::remove_file(&part);
-        return FileResult::Failed(format!("cannot write {}: {e}", job.output.display()));
+        return FileResult::Failed(Failure::Other(format!("cannot write {}: {e}", job.output.display())));
     }
     let warning = if encoded.truncated {
-        Some("the file is damaged or incomplete: converted up to where it stops".to_owned())
+        Some(Warning::Truncated)
     } else if encoded.decode_errors > 0 {
-        Some(format!("{} damaged audio packets were skipped", encoded.decode_errors))
+        Some(Warning::DamagedPackets(encoded.decode_errors))
     } else {
         None
     };

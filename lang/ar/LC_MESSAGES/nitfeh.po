@@ -1,0 +1,391 @@
+# Arabic for the Nitfeh window. The text to translate comes from the @tr() calls in ui/*.slint:
+# `just strings` adds new ones here and lists what is still untranslated.
+#
+# Around every {} there are two invisible marks (U+2068 before, U+2069 after). They keep what is put there, such
+# as "7.2 MB" or a file name, in its own order inside the Arabic sentence. Keep them when editing.
+msgid ""
+msgstr ""
+"Project-Id-Version: nitfeh\n"
+"POT-Creation-Date: 2026-11-21 03:36+0000\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+#: ui/app.slint:232 ui/app.slint:276
+msgctxt "App"
+msgid "Nitfeh"
+msgstr "نتفة"
+
+#: ui/app.slint:252
+msgctxt "App"
+msgid "{}s"
+msgstr "⁨{}⁩ ث"
+
+#: ui/app.slint:253
+msgctxt "App"
+msgid "{}m {}s"
+msgstr "⁨{}⁩ د ⁨{}⁩ ث"
+
+#: ui/app.slint:254
+msgctxt "App"
+msgid "{}h {}m"
+msgstr "⁨{}⁩ س ⁨{}⁩ د"
+
+#: ui/app.slint:268 ui/app.slint:289
+msgctxt "App"
+msgid "About"
+msgstr "حول"
+
+#: ui/app.slint:282 ui/app.slint:820
+msgctxt "App"
+msgid "Small audio from long lectures"
+msgstr "محاضرات طويلة في ملفات صوتية صغيرة"
+
+#: ui/app.slint:318
+msgctxt "App"
+msgid "Choose a lecture"
+msgstr "اختر محاضرة"
+
+#: ui/app.slint:325
+msgctxt "App"
+msgid "A video or audio file, or a whole folder of them"
+msgstr "ملف فيديو أو ملف صوتي، أو مجلد كامل منها"
+
+#: ui/app.slint:336 ui/app.slint:349
+msgctxt "App"
+msgid "Choose folder"
+msgstr "اختيار مجلد"
+
+#: ui/app.slint:343
+msgctxt "App"
+msgid "Choose file"
+msgstr "اختيار ملف"
+
+#: ui/app.slint:379 ui/app.slint:418
+msgctxt "App"
+msgid "Choose another file"
+msgstr "اختيار ملف آخر"
+
+#: ui/app.slint:380 ui/app.slint:419
+msgctxt "App"
+msgid "Choose another folder"
+msgstr "اختيار مجلد آخر"
+
+#: ui/app.slint:404
+msgctxt "App"
+msgid "Looking…"
+msgstr "جارٍ البحث…"
+
+#: ui/app.slint:405
+msgctxt "App"
+msgid "Everything here is already converted"
+msgstr "كل ما هنا محوَّل من قبل"
+
+#: ui/app.slint:406 ui/app.slint:747
+msgctxt "App"
+msgid "Already converted"
+msgstr "محوَّل من قبل"
+
+#: ui/app.slint:407
+msgctxt "App"
+msgid "No videos here. Subfolders or audio files?"
+msgstr "لا توجد مقاطع فيديو هنا. جرّب المجلدات الفرعية أو الملفات الصوتية."
+
+#: ui/app.slint:408
+msgctxt "App"
+msgid "Nothing to convert here"
+msgstr "لا شيء هنا يمكن تحويله"
+
+#: ui/app.slint:409
+msgctxt "App"
+msgid "{n} file · {} · {}"
+msgid_plural "{n} files · {} · {}"
+msgstr[0] "لا ملفات · ⁨{}⁩ · ⁨{}⁩"
+msgstr[1] "ملف واحد · ⁨{}⁩ · ⁨{}⁩"
+msgstr[2] "ملفان · ⁨{}⁩ · ⁨{}⁩"
+msgstr[3] "{n} ملفات · ⁨{}⁩ · ⁨{}⁩"
+msgstr[4] "{n} ملفًا · ⁨{}⁩ · ⁨{}⁩"
+msgstr[5] "{n} ملف · ⁨{}⁩ · ⁨{}⁩"
+
+#: ui/app.slint:410
+msgctxt "App"
+msgid "{n} file · {}"
+msgid_plural "{n} files · {}"
+msgstr[0] "لا ملفات · ⁨{}⁩"
+msgstr[1] "ملف واحد · ⁨{}⁩"
+msgstr[2] "ملفان · ⁨{}⁩"
+msgstr[3] "{n} ملفات · ⁨{}⁩"
+msgstr[4] "{n} ملفًا · ⁨{}⁩"
+msgstr[5] "{n} ملف · ⁨{}⁩"
+
+#: ui/app.slint:436
+msgctxt "App"
+msgid "Size"
+msgstr "الحجم"
+
+#: ui/app.slint:440
+msgctxt "App"
+msgid "Standard"
+msgstr "عادي"
+
+#: ui/app.slint:440 ui/app.slint:441 ui/app.slint:442
+msgctxt "App"
+msgid "about {}"
+msgstr "نحو ⁨{}⁩"
+
+#: ui/app.slint:440 ui/app.slint:441 ui/app.slint:442
+msgctxt "App"
+msgid "{} an hour"
+msgstr "⁨{}⁩ في الساعة"
+
+#: ui/app.slint:441
+msgctxt "App"
+msgid "Small"
+msgstr "صغير"
+
+#: ui/app.slint:442
+msgctxt "App"
+msgid "Smallest"
+msgstr "الأصغر"
+
+#: ui/app.slint:447
+msgctxt "App"
+msgid "Clear speech. The safe choice."
+msgstr "كلام واضح. الخيار الآمن."
+
+#: ui/app.slint:448
+msgctxt "App"
+msgid "Smaller. A little rougher on noisy recordings."
+msgstr "أصغر. أقل صفاءً بقليل في التسجيلات الكثيرة الضجيج."
+
+#: ui/app.slint:449
+msgctxt "App"
+msgid "As small as speech stays clear. Try it on one lecture first."
+msgstr "أصغر حجم يبقى معه الكلام واضحًا. جرّبه على محاضرة واحدة أولًا."
+
+#: ui/app.slint:462
+msgctxt "App"
+msgid "Include subfolders"
+msgstr "تضمين المجلدات الفرعية"
+
+#: ui/app.slint:463
+msgctxt "App"
+msgid "Keeps the same folders in the output"
+msgstr "يُبقي المجلدات نفسها في الناتج"
+
+#: ui/app.slint:468
+msgctxt "App"
+msgid "Also convert audio files"
+msgstr "تحويل الملفات الصوتية أيضًا"
+
+#: ui/app.slint:469
+msgctxt "App"
+msgid "Not only videos"
+msgstr "وليس مقاطع الفيديو فقط"
+
+#: ui/app.slint:477
+msgctxt "App"
+msgid "Save to"
+msgstr "الحفظ في"
+
+#: ui/app.slint:478
+msgctxt "App"
+msgid "Change"
+msgstr "تغيير"
+
+#: ui/app.slint:489
+msgctxt "App"
+msgid "{n} already converted file will be left alone"
+msgid_plural "{n} already converted files will be left alone"
+msgstr[0] "لا ملفات محوَّلة من قبل"
+msgstr[1] "سيُترك ملف واحد محوَّل من قبل كما هو"
+msgstr[2] "سيُترك ملفان محوَّلان من قبل كما هما"
+msgstr[3] "ستُترك {n} ملفات محوَّلة من قبل كما هي"
+msgstr[4] "سيُترك {n} ملفًا محوَّلًا من قبل كما هي"
+msgstr[5] "سيُترك {n} ملف محوَّل من قبل كما هي"
+
+#: ui/app.slint:495
+msgctxt "App"
+msgid "Start"
+msgstr "ابدأ"
+
+#: ui/app.slint:536
+msgctxt "App"
+msgid "Reading…"
+msgstr "جارٍ القراءة…"
+
+#: ui/app.slint:536
+msgctxt "App"
+msgid "{}%"
+msgstr "⁨{}⁩%"
+
+#: ui/app.slint:550
+msgctxt "App"
+msgid "Stopping…"
+msgstr "جارٍ الإيقاف…"
+
+#: ui/app.slint:551
+msgctxt "App"
+msgid "{} left · {} faster than playing it"
+msgstr "بقي ⁨{}⁩ · أسرع من الاستماع بمقدار ⁨{}⁩"
+
+#: ui/app.slint:552
+msgctxt "App"
+msgid "Working out how long it will take…"
+msgstr "جارٍ تقدير المدة…"
+
+#: ui/app.slint:570
+msgctxt "App"
+msgid "File {} of {}"
+msgstr "الملف ⁨{}⁩ من ⁨{}⁩"
+
+#: ui/app.slint:570
+msgctxt "App"
+msgid "Converting"
+msgstr "جارٍ التحويل"
+
+#: ui/app.slint:583 ui/app.slint:770 ui/app.slint:801
+msgctxt "App"
+msgid "Cancel"
+msgstr "إلغاء"
+
+#: ui/app.slint:621
+msgctxt "App"
+msgid "Cancelled"
+msgstr "أُلغي التحويل"
+
+#: ui/app.slint:622
+msgctxt "App"
+msgid "Nothing was converted"
+msgstr "لم يُحوَّل شيء"
+
+#: ui/app.slint:623
+msgctxt "App"
+msgid "Done, with problems"
+msgstr "تمّ، مع بعض المشكلات"
+
+#: ui/app.slint:623
+msgctxt "App"
+msgid "Done"
+msgstr "تمّ"
+
+#: ui/app.slint:630
+msgctxt "App"
+msgid "{} is now {}"
+msgstr "⁨{}⁩ صارت ⁨{}⁩"
+
+#: ui/app.slint:637
+msgctxt "App"
+msgid "{n} file · {} of the original size · took {}"
+msgid_plural "{n} files · {} of the original size · took {}"
+msgstr[0] "لا ملفات · ⁨{}⁩ من الحجم الأصلي · استغرق ⁨{}⁩"
+msgstr[1] "ملف واحد · ⁨{}⁩ من الحجم الأصلي · استغرق ⁨{}⁩"
+msgstr[2] "ملفان · ⁨{}⁩ من الحجم الأصلي · استغرق ⁨{}⁩"
+msgstr[3] "{n} ملفات · ⁨{}⁩ من الحجم الأصلي · استغرق ⁨{}⁩"
+msgstr[4] "{n} ملفًا · ⁨{}⁩ من الحجم الأصلي · استغرق ⁨{}⁩"
+msgstr[5] "{n} ملف · ⁨{}⁩ من الحجم الأصلي · استغرق ⁨{}⁩"
+
+#: ui/app.slint:657
+msgctxt "App"
+msgid "{n} file could not be converted"
+msgid_plural "{n} files could not be converted"
+msgstr[0] "لا ملفات تعذّر تحويلها"
+msgstr[1] "تعذّر تحويل ملف واحد"
+msgstr[2] "تعذّر تحويل ملفين"
+msgstr[3] "تعذّر تحويل {n} ملفات"
+msgstr[4] "تعذّر تحويل {n} ملفًا"
+msgstr[5] "تعذّر تحويل {n} ملف"
+
+#: ui/app.slint:657
+msgctxt "App"
+msgid "Worth a look"
+msgstr "يستحق الانتباه"
+
+#: ui/app.slint:687
+msgctxt "App"
+msgid "No audio track"
+msgstr "لا يوجد مسار صوتي"
+
+#: ui/app.slint:688
+msgctxt "App"
+msgid "The file is damaged or incomplete: converted up to where it stops"
+msgstr "الملف تالف أو ناقص: حُوِّل منه ما قبل موضع الانقطاع"
+
+#: ui/app.slint:689
+msgctxt "App"
+msgid "{n} damaged piece of audio was skipped"
+msgid_plural "{n} damaged pieces of audio were skipped"
+msgstr[0] "لم يُتجاوز أي مقطع صوتي تالف"
+msgstr[1] "تم تجاوز مقطع صوتي تالف واحد"
+msgstr[2] "تم تجاوز مقطعين صوتيين تالفين"
+msgstr[3] "تم تجاوز {n} مقاطع صوتية تالفة"
+msgstr[4] "تم تجاوز {n} مقطعًا صوتيًا تالفًا"
+msgstr[5] "تم تجاوز {n} مقطع صوتي تالف"
+
+#: ui/app.slint:717 ui/app.slint:732
+msgctxt "App"
+msgid "Show the files"
+msgstr "عرض الملفات"
+
+#: ui/app.slint:724
+msgctxt "App"
+msgid "Convert more"
+msgstr "تحويل المزيد"
+
+#: ui/app.slint:754
+msgctxt "App"
+msgid "The {n} file here already has its audio in the output folder."
+msgid_plural "All {n} files here already have their audio in the output folder."
+msgstr[0] "لا ملفات هنا."
+msgstr[1] "الملف الموجود هنا له ملف صوتي في مجلد الناتج من قبل."
+msgstr[2] "الملفان الموجودان هنا لهما ملفان صوتيان في مجلد الناتج من قبل."
+msgstr[3] "كل الملفات الـ {n} هنا لها ملفات صوتية في مجلد الناتج من قبل."
+msgstr[4] "كل الملفات الـ {n} هنا لها ملفات صوتية في مجلد الناتج من قبل."
+msgstr[5] "كل الملفات الـ {n} هنا لها ملفات صوتية في مجلد الناتج من قبل."
+
+#: ui/app.slint:755
+msgctxt "App"
+msgid "“⁨{}⁩” is already there."
+msgstr "«⁨{}⁩» موجود من قبل."
+
+#: ui/app.slint:760
+msgctxt "App"
+msgid "Overwrite replaces what is there. A copy is saved beside it with a number, like “name (2).opus”."
+msgstr "الاستبدال يحلّ محلّ الموجود. أما النسخة فتُحفظ بجانبه مع رقم، مثل «⁦name (2).opus⁩»."
+
+#: ui/app.slint:776 ui/app.slint:793
+msgctxt "App"
+msgid "Make a copy"
+msgstr "إنشاء نسخة"
+
+#: ui/app.slint:784
+msgctxt "App"
+msgid "Overwrite"
+msgstr "استبدال"
+
+#: ui/app.slint:814
+msgctxt "App"
+msgid "Nitfeh {}"
+msgstr "نتفة ⁨{}⁩"
+
+#: ui/app.slint:827
+msgctxt "App"
+msgid "Made by Mudlej"
+msgstr "من صنع مدلج"
+
+#: ui/app.slint:849
+msgctxt "App"
+msgid "Free software under the GNU General Public License, version 3 or later."
+msgstr "برنامج حر برخصة GNU العمومية، الإصدار 3 أو ما بعده."
+
+#: ui/app.slint:854
+msgctxt "App"
+msgid "Built with FFmpeg (LGPL 2.1 or later), libopus (BSD), Slint and its Material components, IBM Plex Sans Arabic (SIL Open Font License) and Google's Material Symbols (Apache 2.0)."
+msgstr "مبني على FFmpeg (رخصة LGPL 2.1 أو أحدث) و libopus (رخصة BSD) و Slint ومكوّنات Material التابعة له، وخط IBM Plex Sans Arabic (رخصة SIL للخطوط المفتوحة)، وأيقونات Material Symbols من Google (رخصة Apache 2.0)."
+
+#: ui/app.slint:869
+msgctxt "App"
+msgid "Close"
+msgstr "إغلاق"

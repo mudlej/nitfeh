@@ -41,12 +41,15 @@ All three are mono, 16 kHz, libopus with `application=voip`, 60 ms frames and VB
 
 - A file goes to `name.opus` beside it; a folder goes to a sibling `<folder>-opus/`. Give a second argument to choose.
 - Folders are read flat. `-r` takes subfolders too and keeps their layout. `-a` also converts audio files.
-- What is already converted is left alone (`--overwrite` to redo), so an interrupted run can simply be started again.
+- What is already converted is left alone, so an interrupted run can simply be started again. `--overwrite`
+  converts it again in place; `--copy` keeps both, saving the new one as `name (2).opus`. The window asks which
+  when everything you chose is already converted.
 - A file is written as `name.opus.part` and renamed when complete. Ctrl-C, Cancel or closing the window removes it.
 - `lec.mkv` and `lec.mp4` in one folder become `lec.mkv.opus` and `lec.mp4.opus`.
 - A file that cannot be converted is reported at the end; the rest still run. Exit code 1 then, 130 when cancelled.
 
-`NITFEH_THEME=light|dark` overrides the system's theme for the window.
+The window is in English or Arabic: the button in its top corner switches, and the choice is remembered.
+`NITFEH_LANG=ar|en` and `NITFEH_THEME=light|dark` override the language and the system's theme for one run.
 
 ## Building from source
 
@@ -75,14 +78,16 @@ Pushing a tag `v<version>` (the version in `Cargo.toml`) builds the three files 
 | `src/progress.rs` | Speed and time left, from media time done |
 | `src/cli.rs`, `src/gui.rs` | The two front ends |
 | `ui/` | The window (Slint): `app.slint`, the Expressive widgets in `widgets.slint`, colours in `theme.slint`, and Slint's Material components in `material/` |
+| `lang/` | The window's Arabic (`just strings` brings it up to date with `ui/`) |
 | `tool/` | What recipes call: `deps.sh` (FFmpeg and libopus for a target), `macos-app.sh`, `smoke.sh`, `icon.py` |
 | `archive/` | The shell script this replaces |
 | `work/` | Downloads, dependency builds, release files (not in git) |
 
 ## Licence
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+Made by [Mudlej](https://mudlej.com). GPL-3.0-or-later; see [LICENSE](LICENSE).
 
 The released files contain FFmpeg (LGPL 2.1 or later, built without GPL or non-free parts; `tool/deps.sh` is the
-exact build), libopus (BSD), IBM Plex Sans Arabic (SIL Open Font License, `assets/fonts/OFL.txt`), and Slint
-(used under GPLv3) with its Material components (MIT).
+exact build), libopus (BSD), IBM Plex Sans Arabic (SIL Open Font License, `assets/fonts/OFL.txt`), Slint
+(used under GPLv3) with its Material components (MIT), and Google's Material Symbols icons (Apache 2.0,
+`ui/icons/LICENSE`).

@@ -123,6 +123,16 @@ fn folders_names_and_resume() {
 
     let out = nitfeh(&["-r", "-a", "دروس"], dir.path());
     assert!(String::from_utf8_lossy(&out.stdout).contains("Nothing to do"));
+
+    // Converting again on request: beside what is there, or over it.
+    let out = nitfeh(&["--copy", "دروس"], dir.path());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("3 files converted"));
+    assert_good_opus(&output.join("المحاضرة الأولى (2).opus"));
+    assert_good_opus(&output.join("lec2.mkv (2).opus"));
+    let count = walk(&output).len();
+    let out = nitfeh(&["--overwrite", "دروس"], dir.path());
+    assert!(String::from_utf8_lossy(&out.stdout).contains("3 files converted"));
+    assert_eq!(walk(&output).len(), count);
     assert!(leftovers(dir.path()).is_empty());
 }
 

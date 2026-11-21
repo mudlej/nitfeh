@@ -78,7 +78,10 @@ fn main() {
 fn compile_ui() {
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let material = root.join("ui/material/material.slint");
-    let config =
-        slint_build::CompilerConfiguration::new().with_library_paths([("material".to_owned(), material)].into());
+    // lang/<language>/LC_MESSAGES/nitfeh.po is compiled in; the window switches between them at run time.
+    println!("cargo:rerun-if-changed=lang");
+    let config = slint_build::CompilerConfiguration::new()
+        .with_library_paths([("material".to_owned(), material)].into())
+        .with_bundled_translations(root.join("lang"));
     slint_build::compile_with_config("ui/app.slint", config).expect("the interface does not compile");
 }

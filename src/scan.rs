@@ -1,7 +1,7 @@
 //! Turns an input path and options into a `Plan`: which files to convert and where each one goes.
 
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::io;
@@ -20,14 +20,25 @@ pub const AUDIO_EXTENSIONS: &[&str] = &[
 ];
 const OUTPUT_EXTENSION: &str = "opus";
 
+/// What happens to an input whose output is already there.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Existing {
+    /// Left alone, so a run that was interrupted picks up where it stopped.
+    #[default]
+    Skip,
+    /// Converted again, replacing the output.
+    Overwrite,
+    /// Converted again beside the output, as `name (2).opus`.
+    Copy,
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ScanOptions {
     /// Folders only: also look in subfolders, mirroring them in the output.
     pub recursive: bool,
     /// Folders only: also convert audio files. A single input file is always accepted.
     pub include_audio: bool,
-    /// Convert again even when the output exists.
-    pub overwrite: bool,
+    pub existing: Existing,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -97,11 +108,53 @@ pub fn plan(input: &Path, output: Option<&Path>, options: ScanOptions) -> Result
     let mut plan =
         if meta.is_dir() { plan_folder(input, output, options)? } else { plan_file(input, output, meta.len())? };
 
-    let (existing, jobs) =
-        std::mem::take(&mut plan.jobs).into_iter().partition(|job| !options.overwrite && job.output.exists());
+    let (existing, jobs) = std::mem::take(&mut plan.jobs).into_iter().partition(|job| job.output.exists());
     plan.jobs = jobs;
     plan.existing = existing;
-    Ok(plan)
+    Ok(plan.resolve(options.existing))
+}
+
+impl Plan {
+    /// Applies a choice to the inputs whose output is already there, moving them into `jobs` unless they are
+    /// skipped. A plan made with `Existing::Skip` can be resolved later, once the user has been asked.
+    pub fn resolve(mut self, choice: Existing) -> Plan {
+        if choice == Existing::Skip || self.existing.is_empty() {
+            return self;
+        }
+        let mut again = std::mem::take(&mut self.existing);
+        if choice == Existing::Copy {
+            let mut taken: HashSet<PathBuf> = self.jobs.iter().map(|job| job.output.clone()).collect();
+            for job in &mut again {
+                let copy = copy_name(&job.output, &taken);
+                // For a single file, the plan's output is that file.
+                if self.output == job.output {
+                    self.output = copy.clone();
+                }
+                taken.insert(copy.clone());
+                job.output = copy;
+            }
+        }
+        self.jobs.extend(again);
+        self.jobs.sort_by(|a, b| natural_path_order(&a.input, &b.input));
+        self
+    }
+}
+
+/// `name.opus` becomes `name (2).opus`, or the first higher number that is free.
+fn copy_name(output: &Path, taken: &HashSet<PathBuf>) -> PathBuf {
+    let stem = output.file_stem().unwrap_or_default();
+    (2..)
+        .map(|n| {
+            let mut name = stem.to_os_string();
+            name.push(format!(" ({n})"));
+            if let Some(extension) = output.extension() {
+                name.push(".");
+                name.push(extension);
+            }
+            output.with_file_name(name)
+        })
+        .find(|candidate| !candidate.exists() && !taken.contains(candidate))
+        .expect("an unused number always exists")
 }
 
 fn plan_file(input: &Path, output: Option<&Path>, input_bytes: u64) -> Result<Plan, ScanError> {
@@ -328,8 +381,31 @@ mod tests {
         assert_eq!(outputs(&made, &out), ["b.opus"]);
         assert_eq!(made.existing.len(), 1);
 
-        let again = plan(&input, Some(&out), ScanOptions { overwrite: true, ..Default::default() }).unwrap();
-        assert_eq!(again.jobs.len(), 2);
+        let over = ScanOptions { existing: Existing::Overwrite, ..Default::default() };
+        let again = plan(&input, Some(&out), over).unwrap();
+        assert_eq!(outputs(&again, &out), ["a.opus", "b.opus"]);
+        assert!(again.existing.is_empty());
+    }
+
+    #[test]
+    fn a_copy_takes_the_first_free_number() {
+        let dir = tree(&["a.mp4", "b.mp4", "c.mp4"]);
+        let (input, out) = (dir.path().join("in"), dir.path().join("out"));
+        fs::create_dir_all(&out).unwrap();
+        for done in ["a.opus", "a (2).opus", "b.opus"] {
+            fs::write(out.join(done), b"done").unwrap();
+        }
+
+        // Asked later, as the window does, or up front, as the command line does: the same plan.
+        let asked = plan(&input, Some(&out), ScanOptions::default()).unwrap().resolve(Existing::Copy);
+        assert_eq!(outputs(&asked, &out), ["a (3).opus", "b (2).opus", "c.opus"]);
+        let copy = ScanOptions { existing: Existing::Copy, ..Default::default() };
+        assert_eq!(plan(&input, Some(&out), copy).unwrap().jobs, asked.jobs);
+
+        let file = input.join("a.mp4");
+        let single = plan(&file, Some(&out.join("a.opus")), copy).unwrap();
+        assert_eq!(single.jobs[0].output, out.join("a (3).opus"));
+        assert_eq!(single.output, out.join("a (3).opus"));
     }
 
     #[test]

@@ -2,6 +2,7 @@
 
 use std::cell::RefCell;
 use std::f32::consts::TAU;
+use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -15,8 +16,8 @@ use slint::{CloseRequestResponse, ComponentHandle, ModelRc, SharedString, Timer,
 
 use crate::preset::Preset;
 use crate::progress::Estimator;
-use crate::runner::{self, Event, FileResult};
-use crate::scan::{self, AUDIO_EXTENSIONS, Plan, ScanOptions, VIDEO_EXTENSIONS};
+use crate::runner::{self, Event, Failure, FileResult, Warning};
+use crate::scan::{self, AUDIO_EXTENSIONS, Existing, Plan, ScanOptions, VIDEO_EXTENSIONS};
 use crate::text;
 
 slint::include_modules!();
@@ -39,6 +40,7 @@ struct State {
     scan: u64,
     scan_cancel: Arc<AtomicBool>,
     run_cancel: Arc<AtomicBool>,
+    arabic: bool,
     worker: Option<JoinHandle<()>>,
     /// Advances the window's animation clock while converting.
     ticker: Option<Timer>,
@@ -63,6 +65,8 @@ pub fn run(input: Option<PathBuf>) -> Result<(), slint::PlatformError> {
         Ok("light") => ui.invoke_use_scheme(false),
         _ => {}
     }
+
+    set_language(&ui, starting_language());
 
     ui.global::<Shapes>().on_wave(wave);
     ui.global::<Shapes>().on_scallop(scallop);
@@ -147,7 +151,16 @@ pub fn run(input: Option<PathBuf>) -> Result<(), slint::PlatformError> {
         let weak = ui.as_weak();
         move || {
             if let Some(ui) = weak.upgrade() {
-                start(&ui);
+                start(&ui, Existing::Skip);
+            }
+        }
+    });
+    // The answer to "already converted": over what is there, or beside it.
+    ui.on_begin_again({
+        let weak = ui.as_weak();
+        move |overwrite| {
+            if let Some(ui) = weak.upgrade() {
+                start(&ui, if overwrite { Existing::Overwrite } else { Existing::Copy });
             }
         }
     });
@@ -169,11 +182,22 @@ pub fn run(input: Option<PathBuf>) -> Result<(), slint::PlatformError> {
             }
         }
     });
-    ui.on_open_output(|| {
-        if let Some(path) = state(|s| s.reveal.clone()) {
-            reveal(&path);
+    ui.on_switch_language({
+        let weak = ui.as_weak();
+        move || {
+            if let Some(ui) = weak.upgrade() {
+                let arabic = !state(|s| s.arabic);
+                set_language(&ui, arabic);
+                remember_language(arabic);
+            }
         }
     });
+    ui.on_open_output(|| {
+        if let Some(path) = state(|s| s.reveal.clone()) {
+            open(path.as_os_str());
+        }
+    });
+    ui.on_open_link(|url| open(OsStr::new(url.as_str())));
     // Closing while converting stops cleanly: the file in progress is removed before the program ends.
     ui.window().on_close_requested(|| {
         state(|s| {
@@ -212,7 +236,8 @@ fn set_source(ui: &App, input: PathBuf) {
 }
 
 fn options(ui: &App) -> ScanOptions {
-    ScanOptions { recursive: ui.get_recursive(), include_audio: ui.get_include_audio(), overwrite: false }
+    // What is already converted is only skipped here; the window asks before converting it again.
+    ScanOptions { recursive: ui.get_recursive(), include_audio: ui.get_include_audio(), existing: Existing::Skip }
 }
 
 fn preset(ui: &App) -> Preset {
@@ -270,10 +295,11 @@ fn show_scan(ui: &App, result: Result<Plan, String>, complete: bool) {
         Ok(plan) => {
             ui.set_to_convert(plan.jobs.len() as i32);
             ui.set_already_done(plan.existing.len() as i32);
+            let first = plan.existing.first().and_then(|job| job.output.file_name());
+            ui.set_existing_name(first.map(|name| name.to_string_lossy().as_ref().into()).unwrap_or_default());
             ui.set_source_size(text::bytes(plan.jobs.iter().map(|j| j.input_bytes).sum()).into());
             let total: Duration = plan.jobs.iter().filter_map(|j| j.duration).sum();
-            let known = complete && !total.is_zero();
-            ui.set_source_duration(if known { text::duration(total).into() } else { SharedString::new() });
+            ui.set_source_seconds(if complete { total.as_secs() as i32 } else { 0 });
             state(|s| s.plan = Some(plan));
         }
     }
@@ -303,9 +329,11 @@ fn preset_sizes(total: Option<Duration>) -> ModelRc<SharedString> {
     ModelRc::new(VecModel::from(sizes))
 }
 
-fn start(ui: &App) {
+fn start(ui: &App, existing: Existing) {
     let Some(plan) = state(|s| s.plan.take()) else { return };
+    let plan = plan.resolve(existing);
     if plan.jobs.is_empty() {
+        state(|s| s.plan = Some(plan));
         return;
     }
     let cancel = Arc::new(AtomicBool::new(false));
@@ -326,7 +354,7 @@ fn start(ui: &App) {
     ui.set_cancelling(false);
     ui.set_progress(0.0);
     ui.set_speed(SharedString::new());
-    ui.set_time_left(SharedString::new());
+    ui.set_seconds_left(-1);
     ui.set_total_files(plan.jobs.len() as i32);
     ui.set_current_index(1);
     ui.set_current_name(plan.jobs[0].name.as_str().into());
@@ -346,7 +374,7 @@ fn start(ui: &App) {
         let mut estimator = Estimator::new();
         let mut started = Instant::now();
         let mut refreshed = Instant::now() - REFRESH;
-        let mut problems: Vec<(String, String, bool)> = Vec::new();
+        let mut problems: Vec<Problem> = Vec::new();
         let mut files = 0;
 
         runner::run(plan, preset, &cancel, |event| match event {
@@ -375,33 +403,37 @@ fn start(ui: &App) {
                     (done.as_secs_f64() / total.as_secs_f64()) as f32
                 };
                 let speed = estimator.speed().map(text::speed).unwrap_or_default();
-                let left = estimator.remaining(total).map(text::duration).unwrap_or_default();
+                let left = estimator.remaining(total).map_or(-1, |left| left.as_secs_f64().round() as i32);
                 let _ = weak.upgrade_in_event_loop(move |ui| {
                     ui.set_progress(fraction);
                     ui.set_speed(speed.into());
-                    ui.set_time_left(left.into());
+                    ui.set_seconds_left(left);
                 });
             }
-            Event::FileDone { name, result, .. } => match result {
-                FileResult::Converted { warning: Some(warning), .. } => problems.push((name, warning, false)),
-                FileResult::Failed(reason) => problems.push((name, reason, true)),
-                _ => {}
-            },
+            // The window words these itself, in its language; only an engine's own message is passed through.
+            Event::FileDone { name, result, .. } => {
+                let (kind, count, detail, failed) = match result {
+                    FileResult::Failed(Failure::NoAudio) => (1, 0, String::new(), true),
+                    FileResult::Failed(Failure::Other(reason)) => (0, 0, reason, true),
+                    FileResult::Converted { warning: Some(Warning::Truncated), .. } => (2, 0, String::new(), false),
+                    FileResult::Converted { warning: Some(Warning::DamagedPackets(n)), .. } => {
+                        (3, n as i32, String::new(), false)
+                    }
+                    _ => return,
+                };
+                problems.push(Problem { name: name.into(), kind, count, detail: detail.into(), failed });
+            }
             Event::Finished(summary) => {
                 let problems = std::mem::take(&mut problems);
                 let _ = weak.upgrade_in_event_loop(move |ui| {
-                    let rows: Vec<Problem> = problems
-                        .into_iter()
-                        .map(|(name, reason, failed)| Problem { name: name.into(), reason: reason.into(), failed })
-                        .collect();
-                    ui.set_problems(ModelRc::new(VecModel::from(rows)));
+                    ui.set_problems(ModelRc::new(VecModel::from(problems)));
                     ui.set_was_cancelled(summary.cancelled);
                     ui.set_converted(summary.converted as i32);
                     ui.set_failed(summary.failed.len() as i32);
                     ui.set_size_before(text::bytes(summary.input_bytes).into());
                     ui.set_size_after(text::bytes(summary.output_bytes).into());
                     ui.set_share(text::percent_of(summary.output_bytes, summary.input_bytes).into());
-                    ui.set_elapsed(text::duration(summary.elapsed).into());
+                    ui.set_elapsed_seconds(summary.elapsed.as_secs_f64().round() as i32);
                     if !summary.cancelled {
                         ui.set_progress(1.0);
                     }
@@ -414,35 +446,79 @@ fn start(ui: &App) {
     state(|s| s.worker = Some(worker));
 }
 
-/// Opens the folder in the system's file manager.
-fn reveal(path: &Path) {
-    let program = if cfg!(windows) {
-        "explorer"
-    } else if cfg!(target_os = "macos") {
-        "open"
-    } else {
-        "xdg-open"
-    };
-    let _ = Command::new(program).arg(path).spawn();
+/// Arabic or English: asked for with NITFEH_LANG, else what was chosen last time, else the system's language.
+fn starting_language() -> bool {
+    let asked = std::env::var("NITFEH_LANG").ok();
+    let saved = language_file().and_then(|file| std::fs::read_to_string(file).ok());
+    match asked.or(saved).or_else(sys_locale::get_locale) {
+        Some(language) => language.trim().to_ascii_lowercase().starts_with("ar"),
+        None => false,
+    }
 }
 
-/// The active part of the progress bar: a sine from the left edge to the progress point, in a box of
-/// `width` by `height`.
-fn wave(width: f32, height: f32, progress: f32, phase: f32, amplitude: f32) -> SharedString {
+fn set_language(ui: &App, arabic: bool) {
+    state(|s| s.arabic = arabic);
+    // The translations are compiled in; "" is the English the window is written in.
+    let _ = slint::select_bundled_translation(if arabic { "ar" } else { "" });
+    ui.global::<Direction>().set_rtl(arabic);
+    ui.set_arabic(arabic);
+}
+
+/// A one-word file in the user's settings folder.
+fn language_file() -> Option<PathBuf> {
+    let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
+    let folder = if cfg!(windows) {
+        var("APPDATA")?.join("Nitfeh")
+    } else if cfg!(target_os = "macos") {
+        var("HOME")?.join("Library/Application Support/Nitfeh")
+    } else {
+        var("XDG_CONFIG_HOME").or_else(|| Some(var("HOME")?.join(".config")))?.join("nitfeh")
+    };
+    Some(folder.join("language"))
+}
+
+fn remember_language(arabic: bool) {
+    if let Some(file) = language_file()
+        && let Some(folder) = file.parent()
+        && std::fs::create_dir_all(folder).is_ok()
+    {
+        let _ = std::fs::write(file, if arabic { "ar\n" } else { "en\n" });
+    }
+}
+
+/// Opens a folder in the system's file manager, or a web address in the browser.
+fn open(target: &OsStr) {
+    let mut command = if cfg!(windows) {
+        // Hands the target to whatever Windows opens it with; `explorer` alone would not take every address.
+        let mut command = Command::new("rundll32");
+        command.args(["url.dll,FileProtocolHandler"]);
+        command
+    } else if cfg!(target_os = "macos") {
+        Command::new("open")
+    } else {
+        Command::new("xdg-open")
+    };
+    let _ = command.arg(target).spawn();
+}
+
+/// The active part of the progress bar: a sine from the start edge to the progress point, in a box of `width`
+/// by `height`. `mirrored` starts it from the right, for a right-to-left language.
+fn wave(width: f32, height: f32, progress: f32, phase: f32, amplitude: f32, mirrored: bool) -> SharedString {
     const WAVELENGTH: f32 = 30.0;
     let middle = height / 2.0;
     let end = width.max(0.0) * progress.clamp(0.0, 1.0);
+    let place = |x: f32| if mirrored { width - x } else { x };
     let mut path = String::with_capacity(64);
     if amplitude < 0.05 || end < 1.0 {
-        let _ = write!(path, "M 0 {middle:.1} L {end:.1} {middle:.1}");
+        let _ = write!(path, "M {:.1} {middle:.1} L {:.1} {middle:.1}", place(0.0), place(end));
         return path.into();
     }
     let y = |x: f32| middle + amplitude * (TAU * (x / WAVELENGTH - phase)).sin();
-    let _ = write!(path, "M 0 {:.2}", y(0.0));
+    let _ = write!(path, "M {:.1} {:.2}", place(0.0), y(0.0));
     let mut x = 0.0;
     while x < end {
         x = (x + 2.0).min(end);
-        let _ = write!(path, " L {x:.1} {:.2}", y(x));
+        let _ = write!(path, " L {:.1} {:.2}", place(x), y(x));
     }
     path.into()
 }
@@ -475,7 +551,7 @@ mod tests {
 
     #[test]
     fn wave_ends_at_the_progress_point_and_stays_inside() {
-        let path = wave(400.0, 11.0, 0.25, 0.3, 3.0);
+        let path = wave(400.0, 11.0, 0.25, 0.3, 3.0, false);
         let points = points(&path);
         assert_eq!(points.first().unwrap().0, 0.0);
         assert_eq!(points.last().unwrap().0, 100.0);
@@ -484,7 +560,9 @@ mod tests {
 
     #[test]
     fn wave_is_a_straight_line_when_flat() {
-        assert_eq!(wave(400.0, 11.0, 1.0, 0.7, 0.0).as_str(), "M 0 5.5 L 400.0 5.5");
+        assert_eq!(wave(400.0, 11.0, 1.0, 0.7, 0.0, false).as_str(), "M 0.0 5.5 L 400.0 5.5");
+        // Right to left, it grows from the right edge.
+        assert_eq!(wave(400.0, 11.0, 0.25, 0.7, 0.0, true).as_str(), "M 400.0 5.5 L 300.0 5.5");
     }
 
     #[test]

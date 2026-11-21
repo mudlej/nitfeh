@@ -2605,6 +2605,7 @@ dependencies = [
  "rfd",
  "slint",
  "slint-build",
+ "sys-locale",
  "tempfile",
  "walkdir",
  "winresource",

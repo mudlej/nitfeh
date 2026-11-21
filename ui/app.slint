@@ -1,25 +1,34 @@
-// The window. Every piece of text shown to the user is an @tr() here, ready for translation.
+// The window. Every piece of text shown to the user is an @tr() here; lang/ holds the Arabic for each.
 
 import "../assets/fonts/IBMPlexSansArabic-Regular.ttf";
 import "../assets/fonts/IBMPlexSansArabic-Medium.ttf";
 import "../assets/fonts/IBMPlexSansArabic-SemiBold.ttf";
 
 import { AboutSlint, Palette } from "std-widgets.slint";
-import { MaterialPalette, StateLayerArea, Icon, ScrollView } from "@material";
-import { Shapes, Motion, ButtonKind, ExpressiveButton, RoundButton, Choice, ConnectedGroup, WavyProgress, Badge, SwitchRow, PathField } from "widgets.slint";
+import { MaterialPalette, Icon, ScrollView } from "@material";
+import { Shapes, Direction, Motion, ButtonKind, ExpressiveButton, RoundButton, Choice, ConnectedGroup, WavyProgress, Badge, SwitchRow, PathField } from "widgets.slint";
 import { Scheme } from "theme.slint";
 
-export { Shapes }
+export { Shapes, Direction }
 
 export enum Stage { setup, working, done }
 
+// Something to tell the user about one file. `kind` picks the sentence: 0 is `detail` as it came from the
+// engine, 1 no audio track, 2 the input stopped early, 3 `count` damaged packets were skipped.
 export struct Problem {
     name: string,
-    reason: string,
+    kind: int,
+    count: int,
+    detail: string,
     failed: bool,
 }
 
-component Label inherits Text {
+// Text that begins on the start side of the language.
+component Para inherits Text {
+    horizontal-alignment: Direction.start;
+}
+
+component Label inherits Para {
     color: MaterialPalette.on-surface-variant;
     font-size: 13px;
     font-weight: 600;
@@ -35,6 +44,122 @@ component View inherits Rectangle {
     animate presence { duration: Motion.normal; easing: Motion.smooth; }
 }
 
+// A small card over everything else, which is dimmed; a click outside the card closes it.
+component Sheet inherits Rectangle {
+    in-out property <bool> open;
+    property <float> presence: root.open ? 1 : 0;
+    visible: root.presence > 0.01;
+    opacity: root.presence;
+    background: MaterialPalette.scrim.with-alpha(0.45);
+    animate presence { duration: Motion.fast; easing: Motion.smooth; }
+
+    TouchArea {
+        clicked => { root.open = false; }
+    }
+
+    Rectangle {
+        width: min(root.width - 48px, 440px);
+        height: content.preferred-height;
+        y: (root.height - self.height) / 2 + (1 - root.presence) * 24px;
+        border-radius: 32px;
+        background: MaterialPalette.surface-container-high;
+        TouchArea { }
+        content := VerticalLayout {
+            padding: 28px;
+            spacing: 12px;
+            @children
+        }
+    }
+}
+
+// A web address that opens in the browser.
+component Link inherits Text {
+    callback clicked <=> area.clicked;
+    color: MaterialPalette.primary;
+    font-weight: 500;
+    area := TouchArea {
+        mouse-cursor: pointer;
+    }
+    Rectangle {
+        y: parent.height - 2px;
+        height: 1px;
+        background: area.has-hover ? MaterialPalette.primary : transparent;
+    }
+}
+
+// The language switch and About, on the end side of the header.
+component HeaderButtons {
+    // The name of the language the switch leads to, shown as its label on hover.
+    in property <string> language;
+    in property <string> about;
+    callback switch-language();
+    callback show-about();
+
+    horizontal-stretch: 0;
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            spacing: 4px;
+            if Direction.rtl: RoundButton {
+                icon: @image-url("icons/info.svg");
+                tooltip: root.about;
+                tip-at-end: true;
+                container: transparent;
+                content: MaterialPalette.on-surface-variant;
+                clicked => { root.show-about(); }
+            }
+            RoundButton {
+                icon: @image-url("icons/language.svg");
+                tooltip: root.language;
+                container: transparent;
+                content: MaterialPalette.on-surface-variant;
+                clicked => { root.switch-language(); }
+            }
+            if !Direction.rtl: RoundButton {
+                icon: @image-url("icons/info.svg");
+                tooltip: root.about;
+                tip-at-end: true;
+                container: transparent;
+                content: MaterialPalette.on-surface-variant;
+                clicked => { root.show-about(); }
+            }
+        }
+    }
+}
+
+// "Another file" and "another folder", on the end side of the chosen source.
+component Picks {
+    in property <string> file;
+    in property <string> folder;
+    callback choose-file();
+    callback choose-folder();
+
+    horizontal-stretch: 0;
+    VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+            spacing: 4px;
+            if Direction.rtl: RoundButton {
+                icon: @image-url("icons/folder.svg");
+                tooltip: root.folder;
+                tip-at-end: true;
+                clicked => { root.choose-folder(); }
+            }
+            RoundButton {
+                icon: @image-url("icons/file.svg");
+                tooltip: root.file;
+                clicked => { root.choose-file(); }
+            }
+            if !Direction.rtl: RoundButton {
+                icon: @image-url("icons/folder.svg");
+                tooltip: root.folder;
+                tip-at-end: true;
+                clicked => { root.choose-folder(); }
+            }
+        }
+    }
+}
+
 export component App inherits Window {
     // What was chosen.
     in property <bool> has-source;
@@ -44,11 +169,14 @@ export component App inherits Window {
     in property <bool> scanning;
     in property <int> to-convert;
     in property <int> already-done;
+    // For a single file that is already converted: the name of its output.
+    in property <string> existing-name;
     in property <string> source-size;
-    in property <string> source-duration;
-    in property <bool> sizes-are-totals;
+    // 0 while unknown.
+    in property <int> source-seconds;
     in property <string> scan-problem;
     in property <[string]> preset-sizes;
+    in property <bool> sizes-are-totals;
 
     // How to convert it.
     in-out property <int> preset;
@@ -63,7 +191,8 @@ export component App inherits Window {
     in property <int> current-index;
     in property <int> total-files;
     in property <string> speed;
-    in property <string> time-left;
+    // Negative while unknown.
+    in property <int> seconds-left: -1;
     in property <bool> reading;
     in property <bool> cancelling;
     in property <float> clock;
@@ -75,24 +204,32 @@ export component App inherits Window {
     in property <string> size-before;
     in property <string> size-after;
     in property <string> share;
-    in property <string> elapsed;
+    in property <int> elapsed-seconds;
     in property <[Problem]> problems;
 
     in property <string> version;
+    in property <bool> arabic;
 
     callback choose-file();
     callback choose-folder();
     callback choose-output();
     callback options-changed();
     callback begin();
+    // Convert what is already converted: over the old output, or beside it as a copy.
+    callback begin-again(overwrite: bool);
     callback cancel();
     callback open-output();
     callback again();
+    callback switch-language();
+    callback open-link(url: string);
 
     property <bool> about-open;
-    property <bool> can-start: root.has-source && !root.scanning && root.to-convert > 0 && root.output != "";
+    property <bool> confirm-open;
+    property <bool> all-done-before: root.to-convert == 0 && root.already-done > 0;
+    property <bool> can-start: root.has-source && !root.scanning && root.output != ""
+        && (root.to-convert > 0 || root.already-done > 0);
 
-    title: "Nitfeh";
+    title: @tr("Nitfeh");
     icon: @image-url("../assets/icon.png");
     preferred-width: 600px;
     preferred-height: 760px;
@@ -111,6 +248,12 @@ export component App inherits Window {
         Palette.color-scheme = dark ? ColorScheme.dark : ColorScheme.light;
     }
 
+    pure function span(seconds: int) -> string {
+        return seconds < 60 ? @tr("{}s", seconds)
+            : seconds < 3600 ? @tr("{}m {}s", floor(seconds / 60), mod(seconds, 60))
+            : @tr("{}h {}m", floor(seconds / 3600), floor(mod(seconds, 3600) / 60));
+    }
+
     VerticalLayout {
         padding: 24px;
         padding-top: 20px;
@@ -120,31 +263,32 @@ export component App inherits Window {
             // Above the views below it: the About label hangs a little past this row.
             z: 1;
             spacing: 12px;
+            if Direction.rtl: HeaderButtons {
+                language: "English";
+                about: @tr("About");
+                switch-language => { root.switch-language(); }
+                show-about => { root.about-open = true; }
+            }
             VerticalLayout {
+                horizontal-stretch: 1;
                 spacing: 0px;
-                Text {
-                    text: "Nitfeh";
+                Para {
+                    text: @tr("Nitfeh");
                     color: MaterialPalette.on-surface;
                     font-size: 30px;
                     font-weight: 600;
                 }
-                Text {
+                Para {
                     text: @tr("Small audio from long lectures");
                     color: MaterialPalette.on-surface-variant;
                     font-size: 14px;
                 }
             }
-            VerticalLayout {
-                alignment: center;
-                horizontal-stretch: 0;
-                RoundButton {
-                    icon: @image-url("icons/info.svg");
-                    tooltip: @tr("About");
-                    tip-at-end: true;
-                    container: transparent;
-                    content: MaterialPalette.on-surface-variant;
-                    clicked => { root.about-open = true; }
-                }
+            if !Direction.rtl: HeaderButtons {
+                language: "العربية";
+                about: @tr("About");
+                switch-language => { root.switch-language(); }
+                show-about => { root.about-open = true; }
             }
         }
 
@@ -188,13 +332,20 @@ export component App inherits Window {
                         HorizontalLayout {
                             alignment: center;
                             spacing: 8px;
+                            if Direction.rtl: ExpressiveButton {
+                                text: @tr("Choose folder");
+                                icon: @image-url("icons/folder.svg");
+                                kind: ButtonKind.tonal;
+                                large: true;
+                                clicked => { root.choose-folder(); }
+                            }
                             ExpressiveButton {
                                 text: @tr("Choose file");
                                 icon: @image-url("icons/file.svg");
                                 large: true;
                                 clicked => { root.choose-file(); }
                             }
-                            ExpressiveButton {
+                            if !Direction.rtl: ExpressiveButton {
                                 text: @tr("Choose folder");
                                 icon: @image-url("icons/folder.svg");
                                 kind: ButtonKind.tonal;
@@ -213,9 +364,10 @@ export component App inherits Window {
                         background: MaterialPalette.primary-container;
                         HorizontalLayout {
                             padding: 20px;
-                            padding-right: 16px;
+                            padding-left: Direction.rtl ? 16px : 20px;
+                            padding-right: Direction.rtl ? 20px : 16px;
                             spacing: 16px;
-                            VerticalLayout {
+                            if !Direction.rtl: VerticalLayout {
                                 alignment: center;
                                 horizontal-stretch: 0;
                                 Badge {
@@ -223,31 +375,38 @@ export component App inherits Window {
                                     size: 64px;
                                 }
                             }
+                            if Direction.rtl: Picks {
+                                file: @tr("Choose another file");
+                                folder: @tr("Choose another folder");
+                                choose-file => { root.choose-file(); }
+                                choose-folder => { root.choose-folder(); }
+                            }
                             VerticalLayout {
                                 alignment: center;
                                 horizontal-stretch: 1;
                                 spacing: 1px;
-                                Text {
+                                Para {
                                     text: root.source-name;
                                     color: MaterialPalette.on-primary-container;
                                     font-size: 18px;
                                     font-weight: 600;
                                     overflow: elide;
                                 }
-                                Text {
+                                Para {
                                     text: root.source-place;
                                     color: MaterialPalette.on-primary-container;
                                     opacity: 0.7;
                                     font-size: 13px;
                                     overflow: elide;
                                 }
-                                Text {
+                                Para {
                                     text: root.scan-problem != "" ? root.scan-problem
                                         : root.scanning ? @tr("Looking…")
-                                        : root.to-convert == 0 && root.already-done > 0 ? @tr("Everything here is already converted")
+                                        : root.all-done-before && root.source-is-folder ? @tr("Everything here is already converted")
+                                        : root.all-done-before ? @tr("Already converted")
                                         : root.to-convert == 0 && root.source-is-folder ? @tr("No videos here. Subfolders or audio files?")
                                         : root.to-convert == 0 ? @tr("Nothing to convert here")
-                                        : root.source-duration != "" ? @tr("{n} file · {} · {}" | "{n} files · {} · {}" % root.to-convert, root.source-size, root.source-duration)
+                                        : root.source-seconds > 0 ? @tr("{n} file · {} · {}" | "{n} files · {} · {}" % root.to-convert, root.source-size, root.span(root.source-seconds))
                                         : @tr("{n} file · {}" | "{n} files · {}" % root.to-convert, root.source-size);
                                     color: root.scan-problem != "" ? MaterialPalette.error : MaterialPalette.on-primary-container;
                                     font-size: 14px;
@@ -255,22 +414,18 @@ export component App inherits Window {
                                     overflow: elide;
                                 }
                             }
-                            VerticalLayout {
+                            if !Direction.rtl: Picks {
+                                file: @tr("Choose another file");
+                                folder: @tr("Choose another folder");
+                                choose-file => { root.choose-file(); }
+                                choose-folder => { root.choose-folder(); }
+                            }
+                            if Direction.rtl: VerticalLayout {
                                 alignment: center;
                                 horizontal-stretch: 0;
-                                HorizontalLayout {
-                                    spacing: 4px;
-                                    RoundButton {
-                                        icon: @image-url("icons/file.svg");
-                                        tooltip: @tr("Choose another file");
-                                        clicked => { root.choose-file(); }
-                                    }
-                                    RoundButton {
-                                        icon: @image-url("icons/folder.svg");
-                                        tooltip: @tr("Choose another folder");
-                                        tip-at-end: true;
-                                        clicked => { root.choose-folder(); }
-                                    }
+                                Badge {
+                                    icon: root.source-is-folder ? @image-url("icons/folder.svg") : @image-url("icons/file.svg");
+                                    size: 64px;
                                 }
                             }
                         }
@@ -288,7 +443,7 @@ export component App inherits Window {
                             ];
                             changed => { root.options-changed(); }
                         }
-                        Text {
+                        Para {
                             text: root.preset == 0 ? @tr("Clear speech. The safe choice.")
                                 : root.preset == 1 ? @tr("Smaller. A little rougher on noisy recordings.")
                                 : @tr("As small as speech stays clear. Try it on one lecture first.");
@@ -330,7 +485,7 @@ export component App inherits Window {
 
                     VerticalLayout {
                         spacing: 8px;
-                        if root.can-start && root.already-done > 0: Text {
+                        if root.can-start && root.to-convert > 0 && root.already-done > 0: Text {
                             text: @tr("{n} already converted file will be left alone" | "{n} already converted files will be left alone" % root.already-done);
                             color: MaterialPalette.on-surface-variant;
                             font-size: 13px;
@@ -341,7 +496,13 @@ export component App inherits Window {
                             icon: @image-url("icons/play.svg");
                             large: true;
                             enabled: root.can-start;
-                            clicked => { root.begin(); }
+                            clicked => {
+                                if root.all-done-before {
+                                    root.confirm-open = true;
+                                } else {
+                                    root.begin();
+                                }
+                            }
                         }
                     }
                 }
@@ -387,7 +548,7 @@ export component App inherits Window {
                             Rectangle { height: 4px; }
                             Text {
                                 text: root.cancelling ? @tr("Stopping…")
-                                    : root.time-left != "" ? @tr("{} left · {} faster than playing it", root.time-left, root.speed)
+                                    : root.seconds-left >= 0 ? @tr("{} left · {} faster than playing it", root.span(root.seconds-left), root.speed)
                                     : @tr("Working out how long it will take…");
                                 color: MaterialPalette.on-surface-variant;
                                 font-size: 15px;
@@ -400,23 +561,20 @@ export component App inherits Window {
                         border-radius: 24px;
                         background: MaterialPalette.surface-container-low;
                         min-height: 72px;
-                        HorizontalLayout {
+                        VerticalLayout {
                             padding-left: 20px;
                             padding-right: 20px;
-                            spacing: 12px;
-                            VerticalLayout {
-                                alignment: center;
-                                spacing: 2px;
-                                Label {
-                                    text: root.total-files > 1 ? @tr("File {} of {}", root.current-index, root.total-files) : @tr("Converting");
-                                }
-                                Text {
-                                    text: root.current-name;
-                                    color: MaterialPalette.on-surface;
-                                    font-size: 15px;
-                                    font-weight: 500;
-                                    overflow: elide;
-                                }
+                            alignment: center;
+                            spacing: 2px;
+                            Label {
+                                text: root.total-files > 1 ? @tr("File {} of {}", root.current-index, root.total-files) : @tr("Converting");
+                            }
+                            Para {
+                                text: root.current-name;
+                                color: MaterialPalette.on-surface;
+                                font-size: 15px;
+                                font-weight: 500;
+                                overflow: elide;
                             }
                         }
                     }
@@ -476,7 +634,7 @@ export component App inherits Window {
                                 horizontal-alignment: center;
                             }
                             if root.converted > 0: Text {
-                                text: @tr("{n} file · {} of the original size · took {}" | "{n} files · {} of the original size · took {}" % root.converted, root.share, root.elapsed);
+                                text: @tr("{n} file · {} of the original size · took {}" | "{n} files · {} of the original size · took {}" % root.converted, root.share, root.span(root.elapsed-seconds));
                                 color: result.content;
                                 opacity: 0.8;
                                 font-size: 14px;
@@ -505,7 +663,7 @@ export component App inherits Window {
                                     padding-right: 12px;
                                     for problem in root.problems: HorizontalLayout {
                                         spacing: 12px;
-                                        VerticalLayout {
+                                        if !Direction.rtl: VerticalLayout {
                                             alignment: start;
                                             horizontal-stretch: 0;
                                             padding-top: 2px;
@@ -516,19 +674,33 @@ export component App inherits Window {
                                             }
                                         }
                                         VerticalLayout {
+                                            horizontal-stretch: 1;
                                             spacing: 0px;
-                                            Text {
+                                            Para {
                                                 text: problem.name;
                                                 color: MaterialPalette.on-surface;
                                                 font-size: 14px;
                                                 font-weight: 500;
                                                 overflow: elide;
                                             }
-                                            Text {
-                                                text: problem.reason;
+                                            Para {
+                                                text: problem.kind == 1 ? @tr("No audio track")
+                                                    : problem.kind == 2 ? @tr("The file is damaged or incomplete: converted up to where it stops")
+                                                    : problem.kind == 3 ? @tr("{n} damaged piece of audio was skipped" | "{n} damaged pieces of audio were skipped" % problem.count)
+                                                    : problem.detail;
                                                 color: MaterialPalette.on-surface-variant;
                                                 font-size: 13px;
                                                 wrap: word-wrap;
+                                            }
+                                        }
+                                        if Direction.rtl: VerticalLayout {
+                                            alignment: start;
+                                            horizontal-stretch: 0;
+                                            padding-top: 2px;
+                                            Icon {
+                                                source: @image-url("icons/alert.svg");
+                                                colorize: problem.failed ? MaterialPalette.error : MaterialPalette.on-surface-variant;
+                                                width: 20px;
                                             }
                                         }
                                     }
@@ -540,15 +712,22 @@ export component App inherits Window {
 
                     HorizontalLayout {
                         spacing: 8px;
+                        if Direction.rtl && root.converted > 0: ExpressiveButton {
+                            horizontal-stretch: 1;
+                            text: @tr("Show the files");
+                            icon: @image-url("icons/open.svg");
+                            large: true;
+                            clicked => { root.open-output(); }
+                        }
                         ExpressiveButton {
                             horizontal-stretch: 1;
                             text: @tr("Convert more");
-                            icon: @image-url("icons/back.svg");
+                            icon: Direction.rtl ? @image-url("icons/forward.svg") : @image-url("icons/back.svg");
                             kind: root.converted > 0 ? ButtonKind.tonal : ButtonKind.filled;
                             large: true;
                             clicked => { root.again(); }
                         }
-                        if root.converted > 0: ExpressiveButton {
+                        if !Direction.rtl && root.converted > 0: ExpressiveButton {
                             horizontal-stretch: 1;
                             text: @tr("Show the files");
                             icon: @image-url("icons/open.svg");
@@ -561,60 +740,135 @@ export component App inherits Window {
         }
     }
 
-    // About, over everything.
-    Rectangle {
-        property <float> presence: root.about-open ? 1 : 0;
-        visible: self.presence > 0.01;
-        opacity: self.presence;
-        background: MaterialPalette.scrim.with-alpha(0.45);
-        animate presence { duration: Motion.fast; easing: Motion.smooth; }
-
-        TouchArea {
-            clicked => { root.about-open = false; }
+    // What was chosen is already converted: over it, beside it, or not at all.
+    Sheet {
+        open <=> root.confirm-open;
+        Para {
+            text: @tr("Already converted");
+            color: MaterialPalette.on-surface;
+            font-size: 24px;
+            font-weight: 600;
         }
+        Para {
+            text: root.source-is-folder
+                ? @tr("The {n} file here already has its audio in the output folder." | "All {n} files here already have their audio in the output folder." % root.already-done)
+                : @tr("“\u{2068}{}\u{2069}” is already there.", root.existing-name);
+            color: MaterialPalette.on-surface-variant;
+            wrap: word-wrap;
+        }
+        Para {
+            text: @tr("Overwrite replaces what is there. A copy is saved beside it with a number, like “name (2).opus”.");
+            color: MaterialPalette.on-surface-variant;
+            font-size: 13px;
+            wrap: word-wrap;
+        }
+        Rectangle { height: 4px; }
+        HorizontalLayout {
+            alignment: Direction.rtl ? start : end;
+            spacing: 8px;
+            if !Direction.rtl: ExpressiveButton {
+                text: @tr("Cancel");
+                kind: ButtonKind.text;
+                compact: true;
+                clicked => { root.confirm-open = false; }
+            }
+            if Direction.rtl: ExpressiveButton {
+                text: @tr("Make a copy");
+                compact: true;
+                clicked => {
+                    root.confirm-open = false;
+                    root.begin-again(false);
+                }
+            }
+            ExpressiveButton {
+                text: @tr("Overwrite");
+                kind: ButtonKind.tonal;
+                compact: true;
+                clicked => {
+                    root.confirm-open = false;
+                    root.begin-again(true);
+                }
+            }
+            if !Direction.rtl: ExpressiveButton {
+                text: @tr("Make a copy");
+                compact: true;
+                clicked => {
+                    root.confirm-open = false;
+                    root.begin-again(false);
+                }
+            }
+            if Direction.rtl: ExpressiveButton {
+                text: @tr("Cancel");
+                kind: ButtonKind.text;
+                compact: true;
+                clicked => { root.confirm-open = false; }
+            }
+        }
+    }
 
-        Rectangle {
-            width: min(root.width - 48px, 440px);
-            height: about.preferred-height;
-            y: (parent.height - self.height) / 2 + (1 - parent.presence) * 24px;
-            border-radius: 32px;
-            background: MaterialPalette.surface-container-high;
-            TouchArea { }
-            about := VerticalLayout {
-                padding: 28px;
-                spacing: 12px;
-                Text {
-                    text: @tr("Nitfeh {}", root.version);
-                    color: MaterialPalette.on-surface;
-                    font-size: 24px;
-                    font-weight: 600;
+    Sheet {
+        open <=> root.about-open;
+        VerticalLayout {
+            spacing: 2px;
+            Para {
+                text: @tr("Nitfeh {}", root.version);
+                color: MaterialPalette.on-surface;
+                font-size: 24px;
+                font-weight: 600;
+            }
+            Para {
+                text: @tr("Small audio from long lectures");
+                color: MaterialPalette.on-surface-variant;
+            }
+        }
+        VerticalLayout {
+            spacing: 2px;
+            Para {
+                text: @tr("Made by Mudlej");
+                color: MaterialPalette.on-surface;
+                font-weight: 500;
+            }
+            HorizontalLayout {
+                alignment: Direction.rtl ? end : start;
+                spacing: 8px;
+                Link {
+                    text: "mudlej.com";
+                    clicked => { root.open-link("https://mudlej.com"); }
                 }
                 Text {
-                    text: @tr("Turns lecture videos and recordings into small Opus audio files: one voice channel, tuned for speech, playable in any current browser, phone or media player.");
+                    text: "·";
                     color: MaterialPalette.on-surface-variant;
-                    wrap: word-wrap;
                 }
-                Text {
-                    text: @tr("Built on FFmpeg (LGPL 2.1 or later) and libopus (BSD). The typeface is IBM Plex Sans Arabic (SIL Open Font License). The interface is made with Slint and its Material components.");
-                    color: MaterialPalette.on-surface-variant;
-                    font-size: 13px;
-                    wrap: word-wrap;
+                Link {
+                    text: "github.com/mudlej/nitfeh";
+                    clicked => { root.open-link("https://github.com/mudlej/nitfeh"); }
                 }
-                HorizontalLayout {
-                    alignment: start;
-                    AboutSlint {
-                        width: 150px;
-                        height: 112px;
-                    }
-                }
-                HorizontalLayout {
-                    alignment: end;
-                    ExpressiveButton {
-                        text: @tr("Close");
-                        kind: ButtonKind.tonal;
-                        clicked => { root.about-open = false; }
-                    }
-                }
+            }
+        }
+        Para {
+            text: @tr("Free software under the GNU General Public License, version 3 or later.");
+            color: MaterialPalette.on-surface-variant;
+            wrap: word-wrap;
+        }
+        Para {
+            text: @tr("Built with FFmpeg (LGPL 2.1 or later), libopus (BSD), Slint and its Material components, IBM Plex Sans Arabic (SIL Open Font License) and Google's Material Symbols (Apache 2.0).");
+            color: MaterialPalette.on-surface-variant;
+            font-size: 13px;
+            wrap: word-wrap;
+        }
+        HorizontalLayout {
+            alignment: Direction.rtl ? end : start;
+            AboutSlint {
+                width: 150px;
+                height: 112px;
+            }
+        }
+        HorizontalLayout {
+            alignment: Direction.rtl ? start : end;
+            ExpressiveButton {
+                text: @tr("Close");
+                kind: ButtonKind.tonal;
+                clicked => { root.about-open = false; }
             }
         }
     }

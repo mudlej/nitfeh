@@ -105,6 +105,20 @@ smoke binary:
 try-windows *args: dist-windows
     @WINEDEBUG=-all wine "{{ dist }}/nitfeh-windows-x86_64.exe" "$@"
 
+# Bring lang/ar up to date with the window's text and say how much is left to translate (needs gettext).
+strings:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{ root }}"
+    extractor=work/tools/bin/slint-tr-extractor
+    if [[ ! -x "$extractor" ]]; then
+      CARGO_TARGET_DIR=target/tools cargo install slint-tr-extractor --version '^1.19' --root work/tools --quiet
+    fi
+    "$extractor" -d nitfeh -o work/nitfeh.pot ui/*.slint
+    msgmerge --quiet --update --backup=none --no-fuzzy-matching --no-wrap lang/ar/LC_MESSAGES/nitfeh.po work/nitfeh.pot
+    msgattrib --no-obsolete --no-wrap -o lang/ar/LC_MESSAGES/nitfeh.po lang/ar/LC_MESSAGES/nitfeh.po
+    msgfmt --check --statistics -o /dev/null lang/ar/LC_MESSAGES/nitfeh.po
+
 # Re-render the icon files in assets/ from tool/icon.py (needs Pillow).
 icons:
     python3 tool/icon.py

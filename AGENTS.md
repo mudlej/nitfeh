@@ -15,5 +15,9 @@
   on. Do not change them without saying so: the result is checked against an `ffmpeg` built from the same sources.
 - A sandbox cannot build for macOS, run a real Windows, or open the system's file pickers. Say what was only
   cross-built or run under wine (`just try-windows`) rather than calling it tested.
-- Every text the window shows is an `@tr()` in `ui/app.slint`.
+- Every text the window shows is an `@tr()` in `ui/app.slint`, with its Arabic in `lang/ar/LC_MESSAGES/nitfeh.po`:
+  after adding or changing one, run `just strings` and translate what it reports (a test fails otherwise). Keep the
+  invisible direction marks around each `{}` in the Arabic. A row with a start and an end side reads
+  `Direction.rtl` and places its parts itself, because Slint does not mirror layouts; check both languages with
+  `NITFEH_LANG=ar|en just shot <name>`.
 - Comments only where they matter. Keep tests light and high value.

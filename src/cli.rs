@@ -13,7 +13,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use crate::preset::Preset;
 use crate::progress::Estimator;
 use crate::runner::{self, Event, FileResult, Summary};
-use crate::scan::{self, ScanOptions};
+use crate::scan::{self, Existing, ScanOptions};
 use crate::text;
 
 const EXIT_FAILED: u8 = 1;
@@ -46,9 +46,13 @@ pub struct Args {
     #[arg(short = 'a', long)]
     pub include_audio: bool,
 
-    /// Convert again even when the output already exists
+    /// Convert again when the output already exists, replacing it
     #[arg(long)]
     pub overwrite: bool,
+
+    /// Convert again when the output already exists, beside it as "name (2).opus"
+    #[arg(long, conflicts_with = "overwrite")]
+    pub copy: bool,
 
     /// No progress bar: only problems and the final summary
     #[arg(short, long)]
@@ -126,8 +130,12 @@ fn window(_input: Option<PathBuf>) -> ExitCode {
 }
 
 pub fn run(args: Args) -> ExitCode {
-    let options =
-        ScanOptions { recursive: args.recursive, include_audio: args.include_audio, overwrite: args.overwrite };
+    let existing = match (args.overwrite, args.copy) {
+        (true, _) => Existing::Overwrite,
+        (_, true) => Existing::Copy,
+        _ => Existing::Skip,
+    };
+    let options = ScanOptions { recursive: args.recursive, include_audio: args.include_audio, existing };
     let Some(input) = args.input.as_deref() else {
         eprintln!("nitfeh: no input given");
         return ExitCode::from(EXIT_FAILED);
@@ -150,7 +158,10 @@ pub fn run(args: Args) -> ExitCode {
             eprintln!("nitfeh: nothing to convert in {}{hint}", input.display());
             return ExitCode::from(EXIT_FAILED);
         }
-        println!("Nothing to do: all {} already converted (--overwrite to redo).", text::files(plan.existing.len()));
+        println!(
+            "Nothing to do: all {} already converted (--overwrite to redo, --copy to keep both).",
+            text::files(plan.existing.len())
+        );
         return ExitCode::SUCCESS;
     }
 
