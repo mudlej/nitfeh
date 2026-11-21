@@ -43,7 +43,7 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           cd dist
-          sha256sum nitfeh-linux-x86_64 nitfeh-windows-x86_64.exe Nitfeh-macos.zip > SHA256SUMS
+          sha256sum nitfeh-linux-x86_64 nitfeh-windows-x86_64.exe Nitfeh-macos.dmg > SHA256SUMS
           cat > notes.md <<'NOTES'
           One file per system; nothing to install. Start it without arguments for the window, or give it
           a file or a folder to convert from a terminal (`--help` lists the options).
@@ -52,10 +52,10 @@ jobs:
           |---|---|---|
           | Linux (x86-64, glibc 2.35 or newer) | `nitfeh-linux-x86_64` | `chmod +x nitfeh-linux-x86_64` |
           | Windows 10 and 11 (x86-64) | `nitfeh-windows-x86_64.exe` | SmartScreen: "More info", then "Run anyway" |
-          | macOS 11 or newer (Intel and Apple silicon) | `Nitfeh-macos.zip` | Unzip, then right-click `Nitfeh.app` and choose Open |
+          | macOS 11 or newer (Intel and Apple silicon) | `Nitfeh-macos.dmg` | Open it and drag Nitfeh to Applications; the first time, right-click the app and choose Open |
 
           The files are not signed with a paid certificate, which is why Windows and macOS ask the first time.
-          On macOS the command line is inside the app: `Nitfeh.app/Contents/MacOS/nitfeh`.
+          On macOS the command line is inside the app: `/Applications/Nitfeh.app/Contents/MacOS/nitfeh`.
           NOTES
-          gh release create "$GITHUB_REF_NAME" nitfeh-linux-x86_64 nitfeh-windows-x86_64.exe Nitfeh-macos.zip SHA256SUMS \
+          gh release create "$GITHUB_REF_NAME" nitfeh-linux-x86_64 nitfeh-windows-x86_64.exe Nitfeh-macos.dmg SHA256SUMS \
             --title "Nitfeh $VERSION" --notes-file notes.md --generate-notes --verify-tag

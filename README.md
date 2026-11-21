@@ -18,7 +18,7 @@ Download the file for your system from the [latest release](https://github.com/m
 |---|---|---|
 | Linux (x86-64, glibc 2.35 or newer) | `nitfeh-linux-x86_64` | `chmod +x nitfeh-linux-x86_64` |
 | Windows 10 and 11 (x86-64) | `nitfeh-windows-x86_64.exe` | SmartScreen: "More info", then "Run anyway" |
-| macOS 11 or newer (Intel and Apple silicon) | `Nitfeh-macos.zip` | Unzip, then right-click `Nitfeh.app` and choose Open |
+| macOS 11 or newer (Intel and Apple silicon) | `Nitfeh-macos.dmg` | Open it and drag Nitfeh to Applications; the first time, right-click the app and choose Open |
 
 Start it without arguments for the window, or from a terminal:
 
@@ -27,7 +27,7 @@ Start it without arguments for the window, or from a terminal:
     nitfeh course/                      # every video in course/ into course-opus/
     nitfeh -r -p small course/ out/     # subfolders too, at 10 kbps
 
-On macOS the command line is inside the app: `Nitfeh.app/Contents/MacOS/nitfeh`.
+On macOS the command line is inside the app: `/Applications/Nitfeh.app/Contents/MacOS/nitfeh`.
 
 | Preset | Bitrate | An hour is about | |
 |---|---|---|---|
@@ -54,7 +54,7 @@ All three are mono, 16 kHz, libopus with `application=voip`, 60 ms frames and VB
     just run        # build and open the window; `just run lecture.mp4` converts
     just check      # formatting, lints, tests and shellcheck
     just dist       # work/dist/nitfeh-linux-x86_64 and nitfeh-windows-x86_64.exe
-    just dist-macos # on a Mac: work/dist/Nitfeh-macos.zip
+    just dist-macos # on a Mac: work/dist/Nitfeh-macos.dmg
 
 Creating the box installs every tool, Just and rustup included. The first recipe then installs the Rust pinned in
 `rust-toolchain.toml` and builds static FFmpeg and libopus from checksum-pinned sources into `work/deps/`.

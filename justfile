@@ -83,7 +83,7 @@ dist-windows: (deps "x86_64-pc-windows-gnu")
     cargo build --release --target x86_64-pc-windows-gnu
     mkdir -p "{{ dist }}" && cp target/x86_64-pc-windows-gnu/release/nitfeh.exe "{{ dist }}/nitfeh-windows-x86_64.exe"
 
-# The release file for macOS, on a Mac: work/dist/Nitfeh-macos.zip (Nitfeh.app, for Intel and Apple silicon).
+# The release file for macOS, on a Mac: work/dist/Nitfeh-macos.dmg (Nitfeh.app, for Intel and Apple silicon).
 dist-macos: (deps "aarch64-apple-darwin") (deps "x86_64-apple-darwin")
     rustup target add aarch64-apple-darwin x86_64-apple-darwin
     MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --target aarch64-apple-darwin

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Joins the two macOS builds into one universal executable, wraps it in Nitfeh.app (so a double-click opens the
-# window instead of a Terminal), and zips it: <output-dir>/Nitfeh-macos.zip. Runs on a Mac.
+# window instead of a Terminal), and puts it in a disk image: <output-dir>/Nitfeh-macos.dmg. Runs on a Mac.
 # Usage: tool/macos-app.sh <arm64 executable> <x86_64 executable> <output-dir>
 set -euo pipefail
 
@@ -12,7 +12,9 @@ OUT="${3:?$USAGE}"
 VERSION="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$ROOT/Cargo.toml" | head -n 1)"
 APP="$OUT/Nitfeh.app"
 
-rm -rf "$APP" "$OUT/Nitfeh-macos.zip"
+DMG="$OUT/Nitfeh-macos.dmg"
+
+rm -rf "$APP" "$DMG"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 lipo -create -output "$APP/Contents/MacOS/nitfeh" "$ARM" "$INTEL"
 chmod +x "$APP/Contents/MacOS/nitfeh"
@@ -38,5 +40,18 @@ PLIST
 # Apple silicon runs only signed code. This is the free "ad hoc" signature, not a developer identity.
 codesign --force --deep --sign - "$APP"
 lipo -info "$APP/Contents/MacOS/nitfeh"
-(cd "$OUT" && ditto -c -k --keepParent Nitfeh.app Nitfeh-macos.zip)
-echo "$OUT/Nitfeh-macos.zip"
+
+# The image shows the app beside a shortcut to Applications, to drag one onto the other.
+STAGE="$(mktemp -d)"
+trap 'rm -rf -- "$STAGE"' EXIT
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+# hdiutil sometimes reports "Resource busy" on CI runners; it works on a second try.
+for attempt in 1 2 3 4 5; do
+  if hdiutil create -volname Nitfeh -srcfolder "$STAGE" -format UDZO -ov "$DMG"; then
+    break
+  fi
+  [[ "$attempt" -lt 5 ]] || { echo "macos-app: hdiutil could not create $DMG" >&2; exit 1; }
+  sleep 3
+done
+echo "$DMG"

@@ -62,6 +62,6 @@ jobs:
       - run: just smoke work/dist/Nitfeh.app/Contents/MacOS/nitfeh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Nitfeh-macos.zip
-          path: work/dist/Nitfeh-macos.zip
+          name: Nitfeh-macos.dmg
+          path: work/dist/Nitfeh-macos.dmg
           if-no-files-found: error
